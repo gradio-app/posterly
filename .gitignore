@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.tox/
+.venv/
+venv/
+
+# Skill outputs (rendered locally; users keep their own)
+*_preview.pdf
+*_preview.png
+
+# Editor + OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*~

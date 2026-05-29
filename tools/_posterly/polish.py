@@ -1,0 +1,269 @@
+"""Soft visual-polish gate — runs at Step 6.
+
+Three gates the hard alignment gate cannot see:
+
+  - **Gate A: figure sizing by aspect ratio.** A wide figure (AR > 1.3)
+    rendered at 38% of card width wastes 60% of the column even when
+    columns align. The defaults match the documented "aim for" lower
+    bounds in SKILL.md so any figure inside the recommended range
+    passes cleanly.
+  - **Gate B: typography orphans.** ``1.18-1.30× ↑`` whose ``↑``
+    wrapped alone onto its own line. Detected on elements with
+    ``[class*="stat"]`` / ``[class*="num"]`` / ``.takeaway-num`` /
+    ``.headline-num`` that end with a known orphan-prone glyph but
+    lack ``white-space: nowrap``.
+  - **Gate C: space-between fill.** ``justify-content: space-between``
+    on a column with one short card produces a giant whitespace gap
+    that reads as "this column ran out of things to say". Detected
+    when the largest inter-card gap exceeds the column's stated
+    ``row-gap`` by > 5% of column height.
+
+Warns by default; ``--strict`` to exit non-zero. Hard-fails if the
+poster has no ``[data-measure-role]`` markup at all — a polish PASS on
+"0 figures, 0 columns, 0 stat elements" would be misleading.
+"""
+from __future__ import annotations
+
+import argparse
+import re
+import sys
+from pathlib import Path
+from typing import Any
+
+from . import canvas as _canvas
+from . import preflight as _preflight
+from . import render as _render
+
+
+# Trailing glyphs that orphan when wrapped: arrows, multiplicative
+# cross, division, plus-minus, footnote markers, degree, percent.
+ORPHAN_GLYPHS = "↑↓↔×÷±§¶†‡*°%"
+
+
+def _eprint(*args: Any, **kw: Any) -> None:
+    print(*args, file=sys.stderr, **kw)
+
+
+_POLISH_JS = r"""
+() => {
+  // ---- 1) Figure sizing ----
+  // For each card, list every <img> with rendered size, the card's
+  // bounding width (the "budget"), and natural dimensions for AR.
+  const figures = [];
+  document.querySelectorAll('[data-measure-role="card"]')
+    .forEach((card, ci) => {
+      const cw = card.getBoundingClientRect().width;
+      card.querySelectorAll('img').forEach(img => {
+        const r = img.getBoundingClientRect();
+        if (r.width < 50) return;  // skip inline icons
+        figures.push({
+          card_index: ci,
+          src: img.getAttribute('src') || '',
+          alt: img.getAttribute('alt') || '',
+          rendered_w: r.width,
+          rendered_h: r.height,
+          card_w: cw,
+          natural_w: img.naturalWidth || 0,
+          natural_h: img.naturalHeight || 0,
+        });
+      });
+    });
+
+  // ---- 2) Orphan-prone text elements ----
+  const sel = '[class*="stat"], [class*="num"], .num, .takeaway-num,'
+            + ' .headline-num';
+  const seen = new Set();
+  const orphans = [];
+  document.querySelectorAll(sel).forEach(el => {
+    if (seen.has(el)) return;
+    seen.add(el);
+    const txt = (el.innerText || '').replace(/\s+$/, '');
+    if (!txt || txt.length > 80) return;
+    const cs = window.getComputedStyle(el);
+    orphans.push({
+      tag: el.tagName.toLowerCase(),
+      cls: el.className || '',
+      text: txt,
+      ws: cs.whiteSpace || '',
+    });
+  });
+
+  // ---- 3) Space-between fill ----
+  const cols = [];
+  document.querySelectorAll('[data-measure-role="column"]')
+    .forEach((col, ci) => {
+      const cs = window.getComputedStyle(col);
+      if (cs.justifyContent !== 'space-between') return;
+      const colR = col.getBoundingClientRect();
+      const children = Array.from(col.children).map(c => {
+        const r = c.getBoundingClientRect();
+        return {top: r.top, bottom: r.bottom, h: r.height};
+      }).filter(c => c.h > 0);
+      if (children.length < 2) return;
+      const gapPx = parseFloat(cs.rowGap || cs.gap || '0') || 0;
+      let maxExcess = 0;
+      let pairIdx = -1;
+      for (let i = 1; i < children.length; i++) {
+        const actual = children[i].top - children[i - 1].bottom;
+        const excess = actual - gapPx;
+        if (excess > maxExcess) {
+          maxExcess = excess;
+          pairIdx = i;
+        }
+      }
+      cols.push({
+        column_index: ci,
+        column_h: colR.height,
+        stated_gap_px: gapPx,
+        max_excess_px: maxExcess,
+        pair_idx: pairIdx,
+      });
+    });
+
+  return {figures, orphans, cols};
+}
+"""
+
+
+def cmd_polish(args: argparse.Namespace) -> int:
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        _eprint("ERROR: playwright not installed. Run:")
+        _eprint("  python -m pip install playwright")
+        _eprint("  python -m playwright install chromium")
+        return 2
+
+    html_path = Path(args.html).resolve()
+    if not html_path.exists():
+        _eprint(f"ERROR: HTML not found: {html_path}")
+        return 2
+
+    # Hard-fail if there's no measurement markup at all. A polish PASS
+    # on "0 figures, 0 columns, 0 stat-like elements" would be silent
+    # success on a file the tool can't reason about.
+    role_counts = _preflight.has_required_roles_in_html(html_path)
+    must_have = ("poster", "card", "column")
+    missing = [r for r in must_have if role_counts.get(r, 0) == 0]
+    if missing:
+        _eprint(
+            f"ERROR: polish requires data-measure-role markup on the "
+            f"poster, columns, and cards. Missing or zero-count: "
+            f"{missing}. Either add the roles or use a different tool."
+        )
+        return 2
+
+    resolved = _canvas.resolve_canvas(
+        html_path, args.canvas, label="[polish]"
+    )
+    if resolved is None:
+        _eprint(
+            "ERROR: could not find `@page { size: <W> <H> }` in HTML; "
+            "pass `--canvas <W>x<H>in` or `--canvas 'A0 portrait'`."
+        )
+        return 2
+    canvas, viewport = resolved
+
+    with sync_playwright() as p:
+        browser, _ctx, page = _render.open_print_emulated_page(p, viewport)
+        page.goto(html_path.as_uri(), wait_until="networkidle")
+
+        settle = _render.settle_page(
+            page,
+            mathjax_timeout_ms=args.mathjax_timeout_ms,
+            settle_ms=args.settle_ms,
+        )
+        fail = _render.hard_fail_on_settle_problems(
+            settle, mathjax_timeout_ms=args.mathjax_timeout_ms,
+        )
+        if fail is not None:
+            browser.close()
+            _eprint(f"FAIL: {fail}")
+            return 1
+
+        data = page.evaluate(_POLISH_JS)
+        browser.close()
+
+    warns: list[str] = []
+
+    # ---- Gate A: figure sizing by AR ----
+    for f in data.get("figures", []):
+        rw = float(f["rendered_w"])
+        cw = float(f["card_w"])
+        nw = float(f["natural_w"])
+        nh = float(f["natural_h"])
+        if cw <= 0 or rw <= 0 or nh <= 0:
+            continue
+        ar = nw / nh
+        ratio = rw / cw
+        if ar > 1.3 and ratio < args.wide_min_ratio:
+            warns.append(
+                f"FIG/WIDE: '{f['src']}' (AR={ar:.2f}) at "
+                f"{ratio * 100:.0f}% of card width — wide figures "
+                f"should sit >= {args.wide_min_ratio * 100:.0f}%. "
+                f"Enlarge, or drop the image-left/text-right wrapper."
+            )
+        elif ar < 0.8 and ratio > args.tall_max_ratio:
+            warns.append(
+                f"FIG/TALL: '{f['src']}' (AR={ar:.2f}) at "
+                f"{ratio * 100:.0f}% of card width — tall figures "
+                f"usually pair better with text-right at 45-60%."
+            )
+        elif 0.8 <= ar <= 1.3 and ratio < args.square_min_ratio:
+            warns.append(
+                f"FIG/SQUARE: '{f['src']}' (AR={ar:.2f}) at "
+                f"{ratio * 100:.0f}% of card width — square figures "
+                f"sit better at {args.square_min_ratio * 100:.0f}-75%."
+            )
+
+    # ---- Gate B: typography orphans ----
+    for n in data.get("orphans", []):
+        txt: str = n["text"]
+        if not txt:
+            continue
+        last = txt[-1]
+        if last not in ORPHAN_GLYPHS:
+            continue
+        if not re.search(r"\s", txt[:-1]):
+            continue
+        ws = (n["ws"] or "").lower()
+        if "nowrap" in ws or "pre" in ws:
+            continue
+        warns.append(
+            f"ORPHAN: <{n['tag']} class='{n['cls']}'> text "
+            f"'{txt[:48]}' ends with '{last}' and may wrap alone. "
+            f"Apply `white-space: nowrap` or use &nbsp; before the "
+            f"trailing glyph."
+        )
+
+    # ---- Gate C: space-between fill ----
+    for c in data.get("cols", []):
+        col_h = float(c["column_h"])
+        excess = float(c["max_excess_px"])
+        if col_h <= 0:
+            continue
+        fill = excess / col_h
+        if fill > args.max_space_between_fill:
+            warns.append(
+                f"SPACE-BETWEEN: column {c['column_index']} has a "
+                f"{excess:.0f} px inter-card gap "
+                f"({fill * 100:.1f}% of column height, stated gap "
+                f"{c['stated_gap_px']:.0f} px). Balance via "
+                f"meaningful content, not justify-content. See "
+                f"§Gate C in SKILL.md."
+            )
+
+    print(f"[polish] {html_path.name}")
+    print(f"  figures checked     : {len(data.get('figures', []))}")
+    print(f"  stat-like elements  : {len(data.get('orphans', []))}")
+    print(f"  space-between cols  : {len(data.get('cols', []))}")
+    print(f"  warnings            : {len(warns)}")
+    for w in warns:
+        print(f"  WARN: {w}")
+
+    if args.strict and warns:
+        _eprint("[polish] FAIL — --strict and warnings present")
+        return 1
+    print("[polish] PASS" if not warns
+          else "[polish] OK (warnings only)")
+    return 0
