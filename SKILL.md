@@ -19,7 +19,8 @@ A poster is **one HTML file** styled for an exact print canvas, rendered to PDF 
      │
      ├──→ tools/poster_check.py measure  (HARD GATE — spread < 5 px,
      │                                    gap-to-strip ∈ [30,50] px,
-     │                                    canvas-fill ≥ 95 %)
+     │                                    poster bbox aligns to page
+     │                                    within ±2 px)
      ├──→ tools/poster_check.py preflight  (LaTeX residue, math `<`, missing imgs)
      ├──→ tools/render_preview.py  (PDF + thumbnail)
      └──→ tools/poster_check.py verify-final  (PDF page count / dims / size)
@@ -293,7 +294,7 @@ tools/
 ```
 
 - `poster_check.py`:
-  - `measure` — **hard** alignment gate (column-bottom spread < 5 px, gap-to-footer in [30, 50] px).
+  - `measure` — **hard** alignment gate (column-bottom spread < 5 px, gap-to-footer in [30, 50] px, canvas-fill ∈ [95 %, 101 %] as a coarse diagnostic, and poster bbox aligns to the page within ±2 px — the bbox-alignment check is the authoritative full-canvas requirement).
   - `preflight` — static HTML lint (LaTeX residue, math `<`, missing images, role validation).
   - `polish` — **soft** visual gate (figure sizing by AR, typography orphans, space-between fill). Warns by default; `--strict` to fail. Hard-fails if the poster has no `[data-measure-role]` markup at all (silent PASS would be a worse bug).
   - `verify-final` — `pdfinfo`-based PDF sanity (page count, dimensions, file size).

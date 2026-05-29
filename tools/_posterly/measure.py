@@ -100,16 +100,22 @@ def cmd_measure(args: argparse.Namespace) -> int:
         )
         print(f"[measure] raw data → {args.json_out}")
 
-    # Canvas-fill gate. The `[data-measure-role="poster"]` box must:
-    #   (a) exist — otherwise measure has nothing to anchor the layout
-    #       against, and a silent PASS would be misleading;
-    #   (b) fill the print viewport in BOTH dimensions, within a
-    #       tolerance band of [min_canvas_fill, 1/min_canvas_fill]. The
-    #       low side catches the common bug where the poster forgets
-    #       the `@media print { :root { --u: 1mm } }` override and
-    #       renders at screen scale into ~42 % of canvas. The high
-    #       side catches the symmetric mistake where the poster CSS
-    #       declares dimensions larger than @page.
+    # Canvas-fill gate (coarse early diagnostic). The position-align
+    # check below is the authoritative rule — any poster whose bbox
+    # aligns to the page within `--position-tol-px` already fills
+    # ≈ 100 % of the canvas. This ratio check fires earlier on two
+    # specific failure modes with a more diagnostic error message:
+    #   (a) missing `[data-measure-role="poster"]` — measure can't
+    #       anchor the layout, so a silent PASS would be misleading;
+    #   (b) ratio FAR outside the band (e.g. 42 % when the poster
+    #       forgot the `@media print { :root { --u: 1mm } }` override
+    #       and rendered at screen scale, or 200 % when hardcoded
+    #       `width` exceeded `@page size`). The error message points
+    #       at the common print-scale bug.
+    # For borderline 95–99 % cases, the position gate is the truth.
+    # Safe-area design belongs as internal padding on a full-bleed
+    # `.poster`, NOT as a smaller poster (which would clip the bbox
+    # alignment check).
     poster_box = next((el for el in data if el["role"] == "poster"), None)
     if poster_box is None:
         _eprint(

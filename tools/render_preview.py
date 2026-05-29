@@ -94,6 +94,7 @@ def main() -> int:
 
     try:
         from playwright.sync_api import sync_playwright
+        from playwright.sync_api import TimeoutError as PWTimeoutError
     except ImportError:
         _eprint("ERROR: playwright not installed. Run:")
         _eprint("  python -m pip install playwright")
@@ -105,9 +106,20 @@ def main() -> int:
             p_, viewport
         )
         page.goto(html_path.as_uri())
-        page.wait_for_load_state(
-            "networkidle", timeout=args.mathjax_timeout_ms,
-        )
+        # Soft path: a hung CDN (blocked MathJax fetch, unreachable web
+        # font) must not hard-crash render. settle_page has its own
+        # bounded waits; let it surface MathJax issues as warnings,
+        # not tracebacks.
+        try:
+            page.wait_for_load_state(
+                "networkidle", timeout=args.mathjax_timeout_ms,
+            )
+        except PWTimeoutError:
+            _eprint(
+                f"[render_preview] WARN: network never went idle within "
+                f"{args.mathjax_timeout_ms} ms; continuing with whatever "
+                f"loaded (likely a slow/blocked external resource)."
+            )
 
         settle = _render.settle_page(
             page,
