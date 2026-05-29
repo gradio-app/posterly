@@ -19,7 +19,7 @@ A poster in `posterly` is **one HTML file** styled for an exact print canvas. Th
 - **Programmatically lintable.** Every "is this column overflowing?" check that you'd do by squinting at a PDF is a Playwright geometry query here.
 - **Exact print output.** `@page { size: 60in 36in }` + Chromium's `page.pdf()` produces a PDF whose dimensions are exactly the canvas — not "approximately A0 after scaling".
 
-Trade-off: no native math typesetting; templates load MathJax 3 from a CDN by default, with one-line offline swap documented in `SKILL.md`.
+Trade-off: no native math typesetting; templates load MathJax 3 from a CDN by default. To go offline, download a MathJax v3 release and change the template's `<script src=…>` to `mathjax/es5/tex-svg.js` — there's an inline comment next to the CDN link in each template showing exactly which line to edit.
 
 ---
 
@@ -71,7 +71,14 @@ posterly/
 └── tests/               ← pytest suite (canvas / preflight / polish / verify-final)
 ```
 
-See `templates/README.md` for the template gallery and the conventions a new template must follow.
+The four sanity-check CLIs at a glance:
+
+- `preflight`     — static lint: LaTeX residue, raw `<` inside math, missing local images.
+- `measure`       — print-emulated geometry: column-bottom spread, gap to footer, poster bbox aligned to the page.
+- `polish`        — soft visual checks: figure-AR sizing, typography orphans, space-between fill.
+- `verify-final`  — `pdfinfo`-based PDF sanity: page count, dimensions, file size.
+
+Detailed thresholds and tuning flags are in `SKILL.md`. See `templates/README.md` for the template gallery and the conventions a new template must follow.
 
 ---
 
