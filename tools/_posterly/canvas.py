@@ -70,35 +70,41 @@ def read_canvas_from_html(html_path: Path) -> tuple[float, float] | None:
     txt = html_path.read_text(encoding="utf-8", errors="ignore")
     css = _extract_style_css(txt)
 
-    # Numeric form first — most posters use it explicitly.
-    m_num = re.search(
-        r"@page(?:\s+[A-Za-z_-][\w:-]*)?\s*\{[^}]*size\s*:\s*"
-        r"([\d.]+)\s*(in|mm|cm|pt)\s+"
-        r"([\d.]+)\s*(in|mm|cm|pt)",
-        css,
+    # Find EVERY `@page … { … size: <value>; … }` candidate (numeric
+    # or named) and try to parse each. Earlier versions stopped at the
+    # first numeric match, so an `@page { size: auto }` declaration
+    # before a real `@page { size: A0 landscape }` would mask the latter
+    # and the parser returned None. Iterate and accept the LAST that
+    # parses — matching CSS cascade for paged media.
+    pattern = re.compile(
+        r"@page(?:\s+[A-Za-z_-][\w:-]*)?\s*\{[^}]*?size\s*:\s*"
+        r"([^;{}]+?)\s*(?:!\s*important\s*)?[;}]",
         re.IGNORECASE,
     )
-    if m_num:
-        w = float(m_num.group(1)) * UNIT_TO_IN[m_num.group(2).lower()]
-        h = float(m_num.group(3)) * UNIT_TO_IN[m_num.group(4).lower()]
-        return w, h
-
-    # Named-size form (CSS Paged Media): `size: <name> [portrait|landscape]?`
-    # OR `size: <portrait|landscape> <name>?`. The spec permits both
-    # orders, so we extract the raw value and feed it to parse_canvas_arg.
-    m_name = re.search(
-        r"@page(?:\s+[A-Za-z_-][\w:-]*)?\s*\{[^}]*size\s*:\s*"
-        r"([A-Za-z][\w\s]*?)\s*[;}]",
-        css,
-        re.IGNORECASE,
-    )
-    if m_name:
+    last_parsed: tuple[float, float] | None = None
+    for m in pattern.finditer(css):
+        raw = m.group(1).strip()
+        # 1) Numeric form: `<num><unit> <num><unit>` (units may differ).
+        m_num = re.fullmatch(
+            r"([\d.]+)\s*(in|mm|cm|pt)\s+"
+            r"([\d.]+)\s*(in|mm|cm|pt)",
+            raw,
+            re.IGNORECASE,
+        )
+        if m_num:
+            w = float(m_num.group(1)) * UNIT_TO_IN[m_num.group(2).lower()]
+            h = float(m_num.group(3)) * UNIT_TO_IN[m_num.group(4).lower()]
+            last_parsed = (w, h)
+            continue
+        # 2) Named form: delegate to parse_canvas_arg so both code paths
+        #    agree on what counts as a valid `<NamedSize> [orient]` /
+        #    `<orient> <NamedSize>` value.
         try:
-            return parse_canvas_arg(m_name.group(1).strip())
+            last_parsed = parse_canvas_arg(raw)
         except argparse.ArgumentTypeError:
-            return None
-
-    return None
+            # Skip this @page (e.g. `size: auto`) and keep looking.
+            continue
+    return last_parsed
 
 
 def parse_canvas_arg(s: str) -> tuple[float, float]:

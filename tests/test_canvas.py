@@ -169,6 +169,36 @@ def test_read_canvas_named_size_orientation_first(tmp_path) -> None:
     assert h == pytest.approx(841 / 25.4)
 
 
+def test_read_canvas_skips_unparseable_page_to_find_real_one(tmp_path) -> None:
+    """If an earlier `@page { size: auto }` (or any other size value the
+    parser doesn't understand) appears BEFORE the real `@page`, the
+    parser must still find the real one — earlier we stopped at the
+    first match and silently returned None for the whole file."""
+    p = _write(tmp_path, "a.html", """
+        <html><head><style>
+          @page { size: auto; }
+          @page { size: A0 landscape; }
+        </style></head></html>
+    """)
+    w, h = canvas.read_canvas_from_html(p)
+    assert w == pytest.approx(1189 / 25.4)
+    assert h == pytest.approx(841 / 25.4)
+
+
+def test_read_canvas_cascade_uses_last_parseable_value(tmp_path) -> None:
+    """When multiple parseable `@page` size values are present, the LAST
+    one wins (matching CSS cascade for paged media). Authors who edit
+    a poster and leave the old `@page` line above the new one should
+    not silently get the old size back."""
+    p = _write(tmp_path, "a.html", """
+        <html><head><style>
+          @page { size: 24in 36in; }
+          @page { size: 36in 47in; }
+        </style></head></html>
+    """)
+    assert canvas.read_canvas_from_html(p) == pytest.approx((36.0, 47.0))
+
+
 def test_read_canvas_returns_none_when_missing(tmp_path) -> None:
     p = _write(tmp_path, "a.html",
                "<html><head><style>body { color: red }</style></head></html>")

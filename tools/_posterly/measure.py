@@ -123,7 +123,7 @@ def cmd_measure(args: argparse.Namespace) -> int:
     fill_w = poster_box["w"] / vw
     fill_h = poster_box["h"] / vh
     lo = args.min_canvas_fill
-    hi = 1.0 / lo if lo > 0 else float("inf")
+    hi = args.max_canvas_fill
     if not (lo <= fill_w <= hi) or not (lo <= fill_h <= hi):
         _eprint(
             f"FAIL: [data-measure-role=\"poster\"] fills "
@@ -133,6 +133,34 @@ def cmd_measure(args: argparse.Namespace) -> int:
             f"`@media print {{ :root {{ --u: 1mm }} }}` so the poster "
             f"keeps the screen-mode unit scale in print. Common cause "
             f"when too large: hardcoded `width` exceeds `@page size`."
+        )
+        return 1
+    # Positional check: poster must be anchored to the page's origin
+    # within `--position-tol-px`. A `transform: translateX(50 px)` would
+    # silently clip the right side of the print PDF; size alone can't
+    # see this.
+    tol = args.position_tol_px
+    pos_problems = []
+    if abs(poster_box["x"]) > tol:
+        pos_problems.append(f"x={poster_box['x']:.1f} (expected ≈ 0)")
+    if abs(poster_box["y"]) > tol:
+        pos_problems.append(f"y={poster_box['y']:.1f} (expected ≈ 0)")
+    if abs(poster_box["right"] - vw) > tol:
+        pos_problems.append(
+            f"right={poster_box['right']:.1f} (expected ≈ {vw})"
+        )
+    if abs(poster_box["bottom"] - vh) > tol:
+        pos_problems.append(
+            f"bottom={poster_box['bottom']:.1f} (expected ≈ {vh})"
+        )
+    if pos_problems:
+        _eprint(
+            "FAIL: [data-measure-role=\"poster\"] is not aligned to "
+            "the page origin (tolerance ±"
+            f"{tol:.1f} px): " + ", ".join(pos_problems)
+            + ". Likely cause: a `transform: translate*`, a `position: "
+            "absolute; left: …`, or non-zero `body` / `html` margin "
+            "leaking into print."
         )
         return 1
 

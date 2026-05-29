@@ -94,11 +94,27 @@ def build_parser() -> argparse.ArgumentParser:
     )
     pm.add_argument(
         "--min-canvas-fill", type=float, default=0.95,
-        help="hard gate: [data-measure-role='poster'] must fill at least "
-             "this fraction of the print viewport in BOTH dimensions "
-             "(default 0.95). Catches the silent 'forgot the print "
-             "media-query unit override' bug where the poster renders "
-             "at screen scale into a much bigger print page.",
+        help="hard gate: [data-measure-role='poster'] must fill at "
+             "least this fraction of the print viewport in BOTH "
+             "dimensions (default 0.95). Catches the silent 'forgot "
+             "the print media-query unit override' bug where the "
+             "poster renders at screen scale into a much bigger "
+             "print page.",
+    )
+    pm.add_argument(
+        "--max-canvas-fill", type=float, default=1.01,
+        help="hard gate: poster must NOT exceed this fraction of the "
+             "print viewport (default 1.01 — i.e. <=1% overshoot is "
+             "tolerated for sub-pixel rounding). The symmetric of "
+             "--min-canvas-fill catches the case where a hardcoded "
+             "`width` in px exceeds `@page size`.",
+    )
+    pm.add_argument(
+        "--position-tol-px", type=float, default=2.0,
+        help="hard gate: poster's bbox edges must align with the print "
+             "viewport's origin within this many px (default 2.0). "
+             "Catches `transform: translate*`, mis-positioned absolute "
+             "layout, and stray body margin in print.",
     )
     pm.add_argument(
         "--json-out", default=None,

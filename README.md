@@ -33,6 +33,11 @@ cd ~/.claude/skills/posterly
 # 2. Install Python deps
 python -m pip install "playwright>=1.40"
 python -m playwright install chromium
+# On a fresh Linux box you may also need:
+#   python -m playwright install --with-deps chromium
+#   # or sudo apt install libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 \
+#   #                     libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 \
+#   #                     libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2
 
 # 3. System deps (for verify-final's pdfinfo)
 #    Linux:   apt install poppler-utils
@@ -66,7 +71,7 @@ tools/
 | Subcommand | Role | Hard / soft |
 |---|---|---|
 | `preflight`     | LaTeX residue, math `<`, missing images, role validation | hard |
-| `measure`       | Column-bottom spread + gap-to-footer + canvas-fill (≥ 95 %) | hard (spread < 5 px) |
+| `measure`       | Column-bottom spread + gap-to-footer + canvas-fill ∈ [95 %, 101 %] + position-align (≤ 2 px) | hard (spread < 5 px) |
 | `polish`        | Figure-AR sizing, typography orphans, space-between fill | soft (`--strict` to fail) |
 | `verify-final`  | `pdfinfo` page count / dimensions / file size | hard |
 | `render_preview`| Render PDF + thumbnail PNG | n/a (warns on MathJax timeout) |
@@ -98,7 +103,7 @@ See `SKILL.md` for the full skill instructions Claude Code will follow. The shor
 3. **Pull paper content.** Numbers, equations, figure paths from the `.tex` — never invent.
 4. **Content audit (strongly recommended).** Send the draft to an external LLM reviewer (Codex MCP, GPT-5, another Claude session) for a paper-vs-poster claim → evidence check. Past sessions caught real fidelity bugs only here.
 5. **Scaffold from template, fill TODOs.**
-6. **Render + measure loop:** every layout change, run `measure` until `spread < 5 px`, gap-to-footer ∈ [30, 50] px, and canvas-fill ≥ 95 %.
+6. **Render + measure loop:** every layout change, run `measure` until `spread < 5 px`, gap-to-footer ∈ [30, 50] px, canvas-fill ∈ [95 %, 101 %], and position-align ≤ 2 px.
 7. **Polish:** run `polish` for soft visual checks (figure sizing, orphans, space-between).
 8. **Final review:** send the rendered PDF back to the reviewer for residue + visual rhetoric.
 9. **`verify-final`** the PDF, then print.
