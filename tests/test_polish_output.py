@@ -122,7 +122,7 @@ def test_svg_zero_natural_size_not_flagged_broken(
     it must NOT be flagged FIG/BROKEN."""
     data = {
         "figures": [
-            {"src": "assets/logo.svg",
+            {"src": "assets/logo.svg?v=2",
              "rendered_w": 150.0, "card_w": 200.0,
              "natural_w": 0.0, "natural_h": 0.0},
         ],

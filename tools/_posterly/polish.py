@@ -218,12 +218,16 @@ def cmd_polish(args: argparse.Namespace) -> int:
         nh = float(f["natural_h"])
         src_l = str(f["src"]).lower()
         # A vector image (SVG) can legitimately report zero natural size
-        # while rendering fine, so never flag it broken. Imperfect: only
-        # catches `.svg` in the src -- a sizeless SVG behind an
-        # extensionless URL still slips through; an `img.decode()`-based
-        # JS probe would be exact. Scope: card <img> only, not the hero
-        # panel image.
-        is_svg = ".svg" in src_l or src_l.startswith("data:image/svg")
+        # while rendering fine, so never flag it broken. Match the path
+        # extension (after stripping any ?query / #fragment) plus inline
+        # SVG data URIs. Imperfect: an SVG behind an extensionless URL
+        # still slips through; an `img.decode()`-based JS probe would be
+        # exact. Scope: card <img> only, not the hero panel image.
+        src_path = src_l.split("?", 1)[0].split("#", 1)[0]
+        is_svg = (
+            src_path.endswith((".svg", ".svgz"))
+            or src_l.startswith("data:image/svg")
+        )
         if (nw <= 0 or nh <= 0) and not is_svg:
             warns.append(
                 f"FIG/BROKEN: '{ascii_safe(f['src'])}' has zero natural "
