@@ -75,9 +75,14 @@ python ../../tools/poster_check.py measure    poster.html
 python ../../tools/poster_check.py polish     poster.html
 python ../../tools/render_preview.py          poster.html
 python ../../tools/poster_check.py verify-final poster_preview.pdf --from-html poster.html
+
+# 5. (dev) run the test suite
+python -m pip install "pytest>=7" && python -m pytest
 ```
 
 All four `poster_check.py` calls should print `PASS` and `render_preview.py` should write `poster_preview.pdf` + `poster_preview.png` into the directory. If that works, install is good.
+
+**Tests (dev):** posterly is clone-only — no PyPI; `pyproject.toml` holds the deps + pytest config. The suite covers the four gates' logic plus Poppler- and Chromium-gated end-to-end checks against `examples/hello_world` (auto-skipped when those binaries aren't present).
 
 ---
 
@@ -117,20 +122,6 @@ The three knobs you'll actually touch:
 - **Colors / fonts**: edit `:root` design tokens (`--accent`, `--gold`, `--font-serif`, …) in the template you copied.
 - **Logos**: drop into the same directory as `poster.html`, reference as `images/your_logo.png`.
 - **QR code**: give `/posterly` your paper/code URL and Claude generates the QR for you — the showcase posters' codes were made this way. Templates ship an inline SVG placeholder so they render offline; to make one by hand, `qrencode -o qr.png -s 12 "<url>"` (Linux) or `python -c "import qrcode; qrcode.make('<url>').save('qr.png')"`, then point the QR `<img src=…>` at it.
-
----
-
-## Development
-
-posterly ships as a clone-only Claude Code skill — `pyproject.toml` carries runtime + dev dependency declarations and pytest config only; nothing is published to PyPI.
-
-```bash
-python -m pip install "playwright>=1.40" "pytest>=7"
-python -m playwright install chromium
-python -m pytest          # or: pytest -q
-```
-
-Tests cover canvas parsing (incl. named sizes + `@page` extraction), preflight math-delimiter coverage, line-number preservation, polish role-validation, the `measure` / `polish` nav-timeout fail-fast, and the `verify-final` input gates plus its `pdfinfo` parsing / dimension-and-rotation logic (via a monkeypatched `pdfinfo`, no Poppler needed). The end-to-end `pdfinfo` round-trip on a real PDF is exercised by a Poppler-gated integration test against `examples/hello_world` (skipped when `pdfinfo` is absent or the example PDF hasn't been rendered yet).
 
 ---
 
