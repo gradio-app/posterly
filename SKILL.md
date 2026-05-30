@@ -115,6 +115,7 @@ For each paper figure you'll use:
 2. Edit the `:root` design tokens (single block; affects everything).
 3. Replace `<title>`, header (title/subtitle/authors/affiliation), banner (if any), column cards, takeaways strip (if any), footer.
 4. Match the template's `data-measure-role` scheme — DO NOT remove these attributes. The measurement script depends on them.
+5. **No logo / QR provided:** keep the venue as its **text** badge — don't fabricate a venue logo. With no affiliation logo, **delete the empty `.logo-slot`** rather than leave a hollow box; the text affiliation line and the corner `.ornament` carry attribution. With no QR, delete `.qr-block`. Never fetch or invent an asset the user didn't give, and never leave a remote QR-service URL in the poster (offline local image only).
 
 A gallery template is a **scaffold**: it passes `preflight` (structure) as shipped, but with figures commented out and copy as `TODO` stubs it is **expected to fail `measure`/`polish`** (columns only fill the top, so the column-bottom spread and gap-to-footer are far out of band). Those two gates judge a *filled* poster — they go green only after Steps 4–6 below, once you've added real content and balanced the columns. Don't try to "fix" a fresh scaffold to pass `measure`; fill it first.
 
