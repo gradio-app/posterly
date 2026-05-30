@@ -8,7 +8,7 @@
 
 **This is a Claude Code skill, not a hosted service.** Clone, install, and either invoke `/posterly` from Claude Code or call the CLIs directly. There is no cloud, no signup, no telemetry.
 
-> 🚧 **Codex version coming.** A Codex-compatible port is in the works — star the repo or open an issue if you'd use it; the open-source response decides whether it ships.
+> 🚧 **Codex version in the works.** A Codex-compatible port is on the way. If posterly is useful to you, a ⭐ and your suggestions / issues are always welcome!
 
 A poster in `posterly` is **one HTML file** styled for an exact print canvas. The skill ships three neutral templates, four sanity-check CLIs, and a render pipeline that produces a PDF at exact ICML / NeurIPS / ICLR / CVPR dimensions. Inside Claude Code, `/posterly` walks you through venue lookup → template pick → content fill → render — see `SKILL.md` for the full workflow Claude Code follows.
 
