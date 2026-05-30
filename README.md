@@ -20,15 +20,15 @@ Three real conference posters — built with `posterly` from **publicly-availabl
 
 *Tooling: each was produced by **Claude Opus 4.7 / 4.8** (reasoning effort `xhigh`) driving `posterly`, with **GPT-5.5** (`xhigh`) as the secondary model for the paper-to-poster content audit.*
 
-[![PowerFlow — ICML 2026 poster](docs/showcase/powerflow_icml2026.jpg)](docs/showcase/powerflow_icml2026.pdf)
+<a href="docs/showcase/powerflow_icml2026.pdf"><img src="docs/showcase/powerflow_icml2026.jpg" alt="PowerFlow — ICML 2026 poster" width="680"></a>
 
 **PowerFlow: Unlocking the Dual Nature of LLMs via Principled Distribution Matching** · ICML 2026 · Chen, Chen, Li, Huang (IIIS, Tsinghua) · [arXiv](https://arxiv.org/abs/2603.18363) · [code](https://github.com/Chenruishuo/PowerFlow) · [source](examples/powerflow_icml2026/poster.html) · [PDF](docs/showcase/powerflow_icml2026.pdf)
 
-[![TD-GFN — ICML 2026 poster](docs/showcase/tdgfn_icml2026.jpg)](docs/showcase/tdgfn_icml2026.pdf)
+<a href="docs/showcase/tdgfn_icml2026.pdf"><img src="docs/showcase/tdgfn_icml2026.jpg" alt="TD-GFN — ICML 2026 poster" width="680"></a>
 
 **Beyond the Proxy: Trajectory-Distilled Guidance for Offline GFlowNet Training (TD-GFN)** · ICML 2026 · Chen, Wang, Hu, Li, Huang (IIIS, Tsinghua) · [arXiv](https://arxiv.org/abs/2505.20110) · [code](https://github.com/Chenruishuo/TD-GFN) · [source](examples/tdgfn_icml2026/poster.html) · [PDF](docs/showcase/tdgfn_icml2026.pdf)
 
-[![OPT-AIL — NeurIPS 2024 poster](docs/showcase/optail_neurips2024.jpg)](docs/showcase/optail_neurips2024.pdf)
+<a href="docs/showcase/optail_neurips2024.pdf"><img src="docs/showcase/optail_neurips2024.jpg" alt="OPT-AIL — NeurIPS 2024 poster" width="680"></a>
 
 **OPT-AIL: Provably & Practically Efficient Adversarial Imitation Learning with General Function Approximation** · NeurIPS 2024 · Xu, Zhang, Chen, Sun, Yu (Nanjing University · Polixir.ai) · [arXiv](https://arxiv.org/abs/2411.00610) · [code](https://github.com/LAMDA-RL/OPT-AIL) · [source](examples/optail_neurips2024/poster.html) · [PDF](docs/showcase/optail_neurips2024.pdf)
 
