@@ -152,7 +152,7 @@ def _delim_label(body: str, segment: str) -> str:
 def cmd_preflight(args: argparse.Namespace) -> int:
     html_path = Path(args.html).resolve()
     if not html_path.exists():
-        _eprint(f"ERROR: HTML not found: {html_path}")
+        _eprint(f"ERROR: HTML not found: {ascii_safe(html_path)}")
         return 2
     raw = html_path.read_text(encoding="utf-8", errors="ignore")
     body = strip_for_lint(raw)
@@ -195,7 +195,8 @@ def cmd_preflight(args: argparse.Namespace) -> int:
     #    poster should be self-contained -- a CDN image that 404s or is
     #    slow at render time silently breaks the figure, and the render
     #    gates can't see a missing remote image. data: URIs are inline.
-    for m in re.finditer(r'src\s*=\s*["\']([^"\']+)["\']', body):
+    for m in re.finditer(r'src\s*=\s*["\']([^"\']+)["\']', body,
+                         re.IGNORECASE):
         src = m.group(1)
         if src.startswith("data:"):
             continue
@@ -243,7 +244,7 @@ def cmd_preflight(args: argparse.Namespace) -> int:
             "no <h1> -- poster title block usually carries one"
         )
 
-    print(f"[preflight] {html_path}")
+    print(f"[preflight] {ascii_safe(html_path)}")
     print(f"  problems: {len(problems)}   warnings: {len(warnings)}")
     for w in warnings:
         print(f"  WARN: {w}")

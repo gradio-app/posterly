@@ -18,6 +18,8 @@ import argparse
 import re
 from pathlib import Path
 
+from .textutil import ascii_safe
+
 
 # Conversion factors → inches.
 UNIT_TO_IN: dict[str, float] = {
@@ -156,7 +158,8 @@ def parse_canvas_arg(s: str) -> tuple[float, float]:
     raise argparse.ArgumentTypeError(
         f"--canvas expects '<W>x<H><unit>' (e.g. '60x36in') or "
         f"'<NamedSize> [portrait|landscape]' (e.g. 'A0 portrait'); "
-        f"got {s!r}. Named sizes: {', '.join(sorted(NAMED_SIZES_MM))}."
+        f"got {ascii_safe(s)!r}. Named sizes: "
+        f"{', '.join(sorted(NAMED_SIZES_MM))}."
     )
 
 

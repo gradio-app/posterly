@@ -38,7 +38,7 @@ def _eprint(*args: Any, **kw: Any) -> None:
 def cmd_verify_final(args: argparse.Namespace) -> int:
     pdf = Path(args.pdf).resolve()
     if not pdf.exists():
-        _eprint(f"ERROR: PDF not found: {pdf}")
+        _eprint(f"ERROR: PDF not found: {ascii_safe(pdf)}")
         return 2
 
     # Resolve expected canvas.
@@ -62,13 +62,13 @@ def cmd_verify_final(args: argparse.Namespace) -> int:
     else:
         html_path = Path(args.from_html).resolve()
         if not html_path.exists():
-            _eprint(f"ERROR: --from-html path not found: {html_path}")
+            _eprint(f"ERROR: --from-html path not found: {ascii_safe(html_path)}")
             return 2
         parsed = _canvas.read_canvas_from_html(html_path)
         if parsed is None:
             _eprint(
                 f"ERROR: no `@page {{ size }}` found in "
-                f"{html_path}. Fall back to --canvas."
+                f"{ascii_safe(html_path)}. Fall back to --canvas."
             )
             return 2
         exp_w, exp_h = parsed
@@ -110,7 +110,7 @@ def cmd_verify_final(args: argparse.Namespace) -> int:
     file_size_b = pdf.stat().st_size
     file_size_mb = file_size_b / (1024 * 1024)
 
-    print(f"[verify-final] {pdf}")
+    print(f"[verify-final] {ascii_safe(pdf)}")
     print(f"  expected canvas = {exp_w:.2f}in x {exp_h:.2f}in  "
           f"(from {src})")
     print(f"  pages           = {pages}")

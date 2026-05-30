@@ -235,3 +235,12 @@ def test_malformed_atpage_size_returns_none(tmp_path) -> None:
         encoding="utf-8",
     )
     assert canvas.read_canvas_from_html(html) is None
+
+
+def test_canvas_arg_error_message_is_ascii() -> None:
+    """Round-13: parse_canvas_arg echoes the rejected value; a Unicode
+    --canvas value must yield an ASCII error message (argparse prints it;
+    Windows cmd / CI logs mojibake on Unicode otherwise)."""
+    with pytest.raises(argparse.ArgumentTypeError) as ei:
+        canvas.parse_canvas_arg("60×中文")  # bad: no valid unit, Unicode
+    str(ei.value).encode("ascii")  # raises if the raw value leaked

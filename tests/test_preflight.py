@@ -247,3 +247,44 @@ def test_local_image_with_query_fragment_or_escape_resolves(tmp_path) -> None:
     )
     rc = preflight.cmd_preflight(_ap.Namespace(html=str(p)))
     assert rc == 0
+
+
+def test_uppercase_src_attr_is_checked(tmp_path, capsys) -> None:
+    """Round-13: HTML attribute names are case-insensitive, so a missing
+    image declared with uppercase SRC must still fail preflight -- the
+    case-sensitive regex used to miss it."""
+    import argparse as _ap
+    p = tmp_path / "p.html"
+    p.write_text(
+        '<html><body><div data-measure-role="poster">'
+        '<img SRC="missing.png"></div></body></html>',
+        encoding="utf-8",
+    )
+    rc = preflight.cmd_preflight(_ap.Namespace(html=str(p)))
+    assert rc == 1
+    assert "missing local image" in capsys.readouterr().err
+
+
+def test_unicode_path_stays_ascii_in_output(tmp_path, capsys) -> None:
+    """Round-13: a poster under a Unicode directory must not leak
+    non-ASCII into preflight's error OR echo output (Windows cmd / CI
+    logs / pasted issues mojibake on Unicode)."""
+    import argparse as _ap
+    d = tmp_path / "张三-poster"  # "张三-poster"
+    d.mkdir()
+    # (a) missing-file error path echoes the path.
+    rc = preflight.cmd_preflight(_ap.Namespace(html=str(d / "nope.html")))
+    err = capsys.readouterr().err
+    err.encode("ascii")  # raises if the Unicode path leaked
+    assert rc == 2
+    # (b) the `[preflight] <path>` header on a real run under that dir.
+    good = d / "p.html"
+    good.write_text(
+        '<html><head><title>t</title></head><body>'
+        '<div data-measure-role="poster"><h1>x</h1></div></body></html>',
+        encoding="utf-8",
+    )
+    rc = preflight.cmd_preflight(_ap.Namespace(html=str(good)))
+    out = capsys.readouterr().out
+    out.encode("ascii")  # raises if the Unicode header path leaked
+    assert rc == 0

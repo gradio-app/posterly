@@ -61,11 +61,36 @@ _POLISH_JS = r"""
         if (r.width < 50) return;  // skip inline icons
         figures.push({
           card_index: ci,
+          role: 'card',
           src: img.getAttribute('src') || '',
           alt: img.getAttribute('alt') || '',
           rendered_w: r.width,
           rendered_h: r.height,
           card_w: cw,
+          natural_w: img.naturalWidth || 0,
+          natural_h: img.naturalHeight || 0,
+        });
+      });
+    });
+  // Hero-panel images (the main figure of a hero-layout poster) get the
+  // broken-image check too -- a blank centerpiece is the worst failure
+  // mode and the card-only scan used to miss it. AR sizing gates are
+  // skipped for these on the Python side (they are framed as % of card
+  // width, which the full-bleed hero panel doesn't have).
+  document.querySelectorAll('[data-measure-role="hero"]')
+    .forEach(hero => {
+      const hw = hero.getBoundingClientRect().width;
+      hero.querySelectorAll('img').forEach(img => {
+        const r = img.getBoundingClientRect();
+        if (r.width < 50) return;  // skip venue badges / inline icons
+        figures.push({
+          card_index: -1,
+          role: 'hero',
+          src: img.getAttribute('src') || '',
+          alt: img.getAttribute('alt') || '',
+          rendered_w: r.width,
+          rendered_h: r.height,
+          card_w: hw,
           natural_w: img.naturalWidth || 0,
           natural_h: img.naturalHeight || 0,
         });
@@ -216,13 +241,14 @@ def cmd_polish(args: argparse.Namespace) -> int:
         cw = float(f["card_w"])
         nw = float(f["natural_w"])
         nh = float(f["natural_h"])
+        role = f.get("role", "card")
         src_l = str(f["src"]).lower()
         # A vector image (SVG) can legitimately report zero natural size
         # while rendering fine, so never flag it broken. Match the path
         # extension (after stripping any ?query / #fragment) plus inline
         # SVG data URIs. Imperfect: an SVG behind an extensionless URL
         # still slips through; an `img.decode()`-based JS probe would be
-        # exact. Scope: card <img> only, not the hero panel image.
+        # exact. Covers both card and hero <img> (see _POLISH_JS).
         src_path = src_l.split("?", 1)[0].split("#", 1)[0]
         is_svg = (
             src_path.endswith((".svg", ".svgz"))
@@ -234,6 +260,11 @@ def cmd_polish(args: argparse.Namespace) -> int:
                 "size -- the image failed to load (missing file, 404, or "
                 "an unreachable remote URL); it will be blank in print."
             )
+            continue
+        # Hero figures get the broken-image check above, but the AR sizing
+        # gates below are framed as "% of card width" and don't apply to
+        # the full-bleed hero panel. Skip them.
+        if role == "hero":
             continue
         if cw <= 0 or rw <= 0 or nw <= 0 or nh <= 0:
             continue

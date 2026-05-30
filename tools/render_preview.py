@@ -71,7 +71,7 @@ def main() -> int:
 
     html_path = Path(args.html).resolve()
     if not html_path.exists():
-        _eprint(f"ERROR: HTML not found: {html_path}")
+        _eprint(f"ERROR: HTML not found: {ascii_safe(html_path)}")
         return 2
 
     pdf_path = (
@@ -203,11 +203,11 @@ def main() -> int:
         browser.close()
 
     print(
-        f"[render_preview] PDF -> {pdf_path}  "
+        f"[render_preview] PDF -> {ascii_safe(pdf_path)}  "
         f"({pdf_path.stat().st_size / 1024:.1f} KB)"
     )
     print(
-        f"[render_preview] PNG -> {png_path}  "
+        f"[render_preview] PNG -> {ascii_safe(png_path)}  "
         f"({png_path.stat().st_size / 1024:.1f} KB)"
     )
     return 0

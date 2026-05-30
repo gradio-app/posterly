@@ -24,6 +24,7 @@ from typing import Any
 
 from . import canvas as _canvas
 from . import render as _render
+from .textutil import ascii_safe
 
 
 def _eprint(*args: Any, **kw: Any) -> None:
@@ -59,7 +60,7 @@ def cmd_measure(args: argparse.Namespace) -> int:
 
     html_path = Path(args.html).resolve()
     if not html_path.exists():
-        _eprint(f"ERROR: HTML not found: {html_path}")
+        _eprint(f"ERROR: HTML not found: {ascii_safe(html_path)}")
         return 2
 
     resolved = _canvas.resolve_canvas(
@@ -119,7 +120,7 @@ def cmd_measure(args: argparse.Namespace) -> int:
         Path(args.json_out).write_text(
             json.dumps(data, indent=2), encoding="utf-8"
         )
-        print(f"[measure] raw data -> {args.json_out}")
+        print(f"[measure] raw data -> {ascii_safe(args.json_out)}")
 
     # Canvas-fill gate (coarse early diagnostic). The position-align
     # check below is the authoritative rule — any poster whose bbox

@@ -32,6 +32,16 @@ def test_missing_pdf_returns_2(tmp_path) -> None:
     assert rc == 2
 
 
+def test_missing_pdf_unicode_path_stays_ascii(tmp_path, capsys) -> None:
+    """Round-13: a PDF under a Unicode directory must not leak non-ASCII
+    into the not-found error (Windows cmd / CI logs mojibake)."""
+    d = tmp_path / "张三"  # Unicode dir
+    d.mkdir()
+    rc = verify_final.cmd_verify_final(_args(pdf=str(d / "missing.pdf")))
+    capsys.readouterr().err.encode("ascii")  # raises if path leaked
+    assert rc == 2
+
+
 def test_neither_canvas_nor_from_html_returns_2(tmp_path) -> None:
     """The old default was --canvas=60x36in, which silently passed
     a 24x36in poster as wrong-sized. Now both are None → exit 2 with a

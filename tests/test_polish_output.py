@@ -132,3 +132,47 @@ def test_svg_zero_natural_size_not_flagged_broken(
     combined, rc = _run(monkeypatch, tmp_path, capsys, data)
     assert "FIG/BROKEN" not in combined      # SVG is exempt
     assert rc == 0
+
+
+def test_hero_broken_image_flagged(tmp_path, monkeypatch, capsys) -> None:
+    """Round-13: a broken main figure inside data-measure-role='hero'
+    must surface FIG/BROKEN. The card-only scan used to miss the hero
+    centerpiece -- the worst image to silently lose."""
+    data = {
+        "figures": [
+            {"src": "images/hero-figure.png", "role": "hero",
+             "rendered_w": 800.0, "card_w": 1000.0,
+             "natural_w": 0.0, "natural_h": 0.0},
+        ],
+        "orphans": [],
+        "cols": [],
+    }
+    combined, rc = _run(monkeypatch, tmp_path, capsys, data)
+    assert "FIG/BROKEN" in combined
+    assert "hero-figure.png" in combined
+    assert rc == 0
+
+
+def test_hero_figure_skips_card_ar_gates(tmp_path, monkeypatch, capsys) -> None:
+    """Hero figures get the broken-image check but NOT the card-width AR
+    sizing gates: identical geometry (30% width, wide AR) raises FIG/WIDE
+    as a CARD but is silent as a HERO, whose panel has no 'card width'."""
+    wide_small = {
+        "src": "images/fig.png",
+        "rendered_w": 300.0, "card_w": 1000.0,     # 30% of width
+        "natural_w": 1600.0, "natural_h": 900.0,   # AR ~1.78 -> wide
+    }
+    card_combined, _ = _run(
+        monkeypatch, tmp_path, capsys,
+        {"figures": [{**wide_small, "role": "card"}],
+         "orphans": [], "cols": []},
+    )
+    assert "FIG/WIDE" in card_combined            # fires for a card
+    hero_combined, rc = _run(
+        monkeypatch, tmp_path, capsys,
+        {"figures": [{**wide_small, "role": "hero"}],
+         "orphans": [], "cols": []},
+    )
+    assert "FIG/WIDE" not in hero_combined        # suppressed for a hero
+    assert "FIG/BROKEN" not in hero_combined      # valid natural size
+    assert rc == 0
