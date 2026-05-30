@@ -216,14 +216,22 @@ def cmd_polish(args: argparse.Namespace) -> int:
         cw = float(f["card_w"])
         nw = float(f["natural_w"])
         nh = float(f["natural_h"])
-        if nw <= 0 or nh <= 0:
+        src_l = str(f["src"]).lower()
+        # A vector image (SVG) can legitimately report zero natural size
+        # while rendering fine, so never flag it broken. Imperfect: only
+        # catches `.svg` in the src -- a sizeless SVG behind an
+        # extensionless URL still slips through; an `img.decode()`-based
+        # JS probe would be exact. Scope: card <img> only, not the hero
+        # panel image.
+        is_svg = ".svg" in src_l or src_l.startswith("data:image/svg")
+        if (nw <= 0 or nh <= 0) and not is_svg:
             warns.append(
                 f"FIG/BROKEN: '{ascii_safe(f['src'])}' has zero natural "
                 "size -- the image failed to load (missing file, 404, or "
                 "an unreachable remote URL); it will be blank in print."
             )
             continue
-        if cw <= 0 or rw <= 0:
+        if cw <= 0 or rw <= 0 or nw <= 0 or nh <= 0:
             continue
         ar = nw / nh
         ratio = rw / cw

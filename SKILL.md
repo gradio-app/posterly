@@ -219,6 +219,8 @@ A figure too small for its column is more wasteful than one too big. Pick width 
 
 Thresholds are tunable via `--wide-min-ratio` / `--square-min-ratio` / `--tall-max-ratio`. The defaults are the "aim for" lower bound, so anything inside the documented "aim for" range passes the gate cleanly.
 
+A figure whose `<img>` fails to load (missing file, 404, or unreachable remote URL) reports zero natural size and warns as **FIG/BROKEN** — it will be blank in print. SVGs are exempt (they legitimately report zero intrinsic size); the probe covers card `<img>` only, not the hero panel image.
+
 Concrete bad case (prior session): `co-consideration.png` (AR ≈ 1.41) shipped at 41 % column width. The whitespace beside it conveyed nothing and the figure was unreadable from 2 m. Fix: 66 % width, no text-right.
 
 ### Gate B — Typography orphans

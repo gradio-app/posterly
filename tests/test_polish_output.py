@@ -1,8 +1,9 @@
-"""Round-10: polish's terminal output must stay ASCII even when the
-USER's HTML contains Unicode (orphan glyphs, image src), and a broken /
-zero-natural-size <img> must surface a FIG/BROKEN warning rather than be
-silently skipped. Playwright is mocked via an injected fake module, with
-page.evaluate() returning canned polish data."""
+"""Round-10/12: polish's terminal output must stay ASCII even when the
+USER's HTML contains Unicode (orphan glyphs, image src), a broken /
+zero-natural-size raster <img> must surface FIG/BROKEN, and a zero-size
+SVG (which renders fine) must NOT. Playwright is mocked via an injected
+fake module, with page.evaluate() returning canned polish data.
+"""
 from __future__ import annotations
 
 import argparse
@@ -11,22 +12,6 @@ import types
 
 from _posterly import polish as _polish
 from _posterly.textutil import ascii_safe
-
-
-# Canned _POLISH_JS result: one broken figure (zero natural size) + one
-# orphan whose text carries Unicode that must NOT reach stdout raw.
-_DATA = {
-    "figures": [
-        {"src": "https://cdn.example.com/broken.png",
-         "rendered_w": 100.0, "card_w": 200.0,
-         "natural_w": 0.0, "natural_h": 0.0},
-    ],
-    "orphans": [
-        {"text": "1.18–1.30× ↑", "ws": "",
-         "tag": "span", "cls": "stat-num"},
-    ],
-    "cols": [],
-}
 
 
 def _install_fake_playwright(monkeypatch):
@@ -47,11 +32,14 @@ def _install_fake_playwright(monkeypatch):
 
 
 class _Page:
+    def __init__(self, data):
+        self._data = data
+
     def goto(self, *a, **k):
         pass
 
     def evaluate(self, *a, **k):
-        return _DATA
+        return self._data
 
 
 class _Browser:
@@ -80,6 +68,23 @@ def _args(html):
     )
 
 
+def _run(monkeypatch, tmp_path, capsys, data):
+    """Drive cmd_polish with `data` as the canned _POLISH_JS result.
+    Returns (combined stdout+stderr, return code)."""
+    _install_fake_playwright(monkeypatch)
+    page = _Page(data)
+    monkeypatch.setattr(
+        _polish._render, "open_print_emulated_page",
+        lambda p, vp: (_Browser(), None, page),
+    )
+    monkeypatch.setattr(_polish._render, "settle_page", lambda *a, **k: object())
+    monkeypatch.setattr(
+        _polish._render, "hard_fail_on_settle_problems", lambda *a, **k: None
+    )
+    rc = _polish.cmd_polish(_args(_poster_html(tmp_path)))
+    return "".join(capsys.readouterr()), rc
+
+
 def test_ascii_safe_escapes_non_ascii() -> None:
     s = ascii_safe("a × b ↑ –")
     s.encode("ascii")  # must not raise
@@ -90,19 +95,40 @@ def test_ascii_safe_escapes_non_ascii() -> None:
 def test_polish_output_ascii_and_flags_broken_image(
     tmp_path, monkeypatch, capsys
 ) -> None:
-    _install_fake_playwright(monkeypatch)
-    monkeypatch.setattr(
-        _polish._render, "open_print_emulated_page",
-        lambda p, vp: (_Browser(), None, _Page()),
-    )
-    monkeypatch.setattr(_polish._render, "settle_page", lambda *a, **k: object())
-    monkeypatch.setattr(
-        _polish._render, "hard_fail_on_settle_problems", lambda *a, **k: None
-    )
-    rc = _polish.cmd_polish(_args(_poster_html(tmp_path)))
-    combined = "".join(capsys.readouterr())
+    data = {
+        "figures": [
+            {"src": "https://cdn.example.com/broken.png",
+             "rendered_w": 100.0, "card_w": 200.0,
+             "natural_w": 0.0, "natural_h": 0.0},
+        ],
+        "orphans": [
+            {"text": "1.18–1.30× ↑", "ws": "", "tag": "span",
+             "cls": "stat-num"},
+        ],
+        "cols": [],
+    }
+    combined, rc = _run(monkeypatch, tmp_path, capsys, data)
     combined.encode("ascii")  # raises if user Unicode leaked through
-    assert "FIG/BROKEN" in combined          # zero-size img surfaced
+    assert "FIG/BROKEN" in combined          # zero-size raster surfaced
     assert "ORPHAN" in combined              # orphan still detected
     assert "↑" not in combined and "×" not in combined  # escaped
     assert rc == 0                           # warnings only (not --strict)
+
+
+def test_svg_zero_natural_size_not_flagged_broken(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """A viewBox-only SVG reports zero natural size but renders fine --
+    it must NOT be flagged FIG/BROKEN."""
+    data = {
+        "figures": [
+            {"src": "assets/logo.svg",
+             "rendered_w": 150.0, "card_w": 200.0,
+             "natural_w": 0.0, "natural_h": 0.0},
+        ],
+        "orphans": [],
+        "cols": [],
+    }
+    combined, rc = _run(monkeypatch, tmp_path, capsys, data)
+    assert "FIG/BROKEN" not in combined      # SVG is exempt
+    assert rc == 0
