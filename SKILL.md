@@ -105,9 +105,14 @@ You may proceed to Step 2 **only after every finding is either fixed or explicit
 
 For each paper figure you'll use:
 
-1. **Autocrop whitespace** with PIL.ImageChops so the figure fills its card.
-2. **Re-export at ≥ 2× the rendered px**. A `200u × 120u` figure print-rendered at 96 ppi → ~756 × 454 px. Source PNGs must be ≥ 1500 × 900 to look crisp at print.
-3. **QR codes**: request at ≥ 2× rendered px (e.g., 480×480 if displayed at ~240 px).
+1. **Vector source (EPS / PDF figure)?** Chromium `<img>` renders **neither EPS nor PDF** (converting to PDF does not help — also not embeddable), so a vector figure must be converted first. **SVG** is best — it stays crisp at poster scale. If a vector converter is already installed (`inkscape`, `pdf2svg`, `dvisvgm`), go straight to SVG. If none is installed, **ask the user** (one AskUserQuestion) whether to install one for a sharp vector figure, or rasterize to PNG instead — don't decide silently:
+   - **Willing to install → SVG** (preferred): e.g. `inkscape fig.eps --export-type=svg`, or `pdf2svg fig.pdf fig.svg`.
+   - **Decline → high-res PNG**: rasterize with Ghostscript at ≥ 2× rendered px — `gs -dSAFER -dBATCH -dNOPAUSE -dEPSCrop -r600 -sDEVICE=png16m -o fig.png fig.eps` (PIL works too; it shells out to `gs`: `Image.open('fig.eps').load(scale=5)`).
+
+   Never embed the `.eps` / `.pdf` directly — it renders blank, caught only late as `polish`'s FIG/BROKEN after a wasted render.
+2. **Autocrop whitespace** with PIL.ImageChops so the figure fills its card.
+3. **Re-export at ≥ 2× the rendered px**. A `200u × 120u` figure print-rendered at 96 ppi → ~756 × 454 px. Source PNGs must be ≥ 1500 × 900 to look crisp at print.
+4. **QR codes**: request at ≥ 2× rendered px (e.g., 480×480 if displayed at ~240 px).
 
 ### Step 3 — Scaffold from the gallery
 
