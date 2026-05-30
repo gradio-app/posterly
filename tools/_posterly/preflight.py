@@ -22,6 +22,7 @@ import re
 import sys
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote, urlsplit
 
 
 # Roles understood by ``measure`` / ``polish``. Anything outside this
@@ -207,7 +208,11 @@ def cmd_preflight(args: argparse.Namespace) -> int:
                 "time"
             )
             continue
-        candidate = (html_path.parent / src).resolve()
+        # Strip ?query / #fragment and percent-decode before resolving a
+        # LOCAL path -- a legit `fig.png?v=2` or `my%20fig.png` otherwise
+        # reads as a missing file.
+        local = unquote(urlsplit(src).path)
+        candidate = (html_path.parent / local).resolve()
         if not candidate.exists():
             ln = body[: m.start()].count("\n") + 1
             problems.append(f"L{ln}: missing local image '{ascii_safe(src)}'")

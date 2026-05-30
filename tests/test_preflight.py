@@ -228,3 +228,22 @@ def test_missing_local_image_still_fails(tmp_path, capsys) -> None:
     rc = preflight.cmd_preflight(_ap.Namespace(html=str(p)))
     assert rc == 1
     assert "missing local image" in capsys.readouterr().err
+
+
+def test_local_image_with_query_fragment_or_escape_resolves(tmp_path) -> None:
+    """A local image src carrying ?cache-buster / #fragment / %20 must
+    resolve to the real file, not read as a missing local image."""
+    import argparse as _ap
+    (tmp_path / "fig.png").write_bytes(b"x")
+    (tmp_path / "my fig.png").write_bytes(b"x")
+    p = tmp_path / "p.html"
+    p.write_text(
+        '<html><body><div data-measure-role="poster">'
+        '<img src="fig.png?v=2">'
+        '<img src="fig.png#frag">'
+        '<img src="my%20fig.png">'
+        '</div></body></html>',
+        encoding="utf-8",
+    )
+    rc = preflight.cmd_preflight(_ap.Namespace(html=str(p)))
+    assert rc == 0

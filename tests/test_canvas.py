@@ -214,3 +214,24 @@ def test_viewport_at_96_ppi() -> None:
     w, h = canvas.viewport_for(canvas.parse_canvas_arg("A0 portrait"))
     assert w == pytest.approx(33.11 * 96, abs=2)
     assert h == pytest.approx(46.81 * 96, abs=2)
+
+
+# ---- malformed inputs: clean error, not a traceback ------------------------
+
+def test_malformed_numeric_canvas_arg_clean_error() -> None:
+    """`60..0x36in` must raise ArgumentTypeError (argparse formats it
+    cleanly), not a float() ValueError traceback."""
+    with pytest.raises(argparse.ArgumentTypeError):
+        canvas.parse_canvas_arg("60..0x36in")
+
+
+def test_malformed_atpage_size_returns_none(tmp_path) -> None:
+    """A malformed @page numeric size must yield None (caller emits a
+    clean 'add @page' error), not a traceback."""
+    html = tmp_path / "p.html"
+    html.write_text(
+        "<html><head><style>@page { size: 60..0in 36in }</style>"
+        "</head></html>",
+        encoding="utf-8",
+    )
+    assert canvas.read_canvas_from_html(html) is None

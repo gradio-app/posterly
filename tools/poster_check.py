@@ -10,10 +10,10 @@ Four subcommands:
   preflight      Static HTML scan: LaTeX residue, raw '<' inside
                  ``$…$`` / ``$$…$$`` / ``\\(…\\)`` / ``\\[…\\]``,
                  missing local images, missing data-measure-role.
-  polish         Visual-polish warnings on figure sizing, typography
-                 orphans, and space-between fill. Soft gate; warns by
-                 default. ``--strict`` to fail. Hard-fails if there's
-                 no measurement markup at all.
+  polish         Visual-polish warnings on figure sizing, broken
+                 images, typography orphans, and space-between fill.
+                 Soft gate; warns by default. ``--strict`` to fail.
+                 Hard-fails if there's no measurement markup at all.
   verify-final   Run ``pdfinfo`` on a rendered PDF; check page count,
                  dimensions match the expected canvas (``--canvas`` or
                  ``--from-html``), and file size under a limit.

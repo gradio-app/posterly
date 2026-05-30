@@ -86,8 +86,8 @@ def read_canvas_from_html(html_path: Path) -> tuple[float, float] | None:
         raw = m.group(1).strip()
         # 1) Numeric form: `<num><unit> <num><unit>` (units may differ).
         m_num = re.fullmatch(
-            r"([\d.]+)\s*(in|mm|cm|pt)\s+"
-            r"([\d.]+)\s*(in|mm|cm|pt)",
+            r"((?:\d+(?:\.\d*)?|\.\d+))\s*(in|mm|cm|pt)\s+"
+            r"((?:\d+(?:\.\d*)?|\.\d+))\s*(in|mm|cm|pt)",
             raw,
             re.IGNORECASE,
         )
@@ -121,7 +121,8 @@ def parse_canvas_arg(s: str) -> tuple[float, float]:
     s = s.strip()
     # Form 1: <W>x<H><unit>
     m = re.fullmatch(
-        r"([\d.]+)\s*[x×]\s*([\d.]+)\s*(in|mm|cm|pt)",
+        r"((?:\d+(?:\.\d*)?|\.\d+))\s*[x×]\s*"
+        r"((?:\d+(?:\.\d*)?|\.\d+))\s*(in|mm|cm|pt)",
         s,
         re.IGNORECASE,
     )

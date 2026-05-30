@@ -298,7 +298,7 @@ tools/
 - `poster_check.py`:
   - `measure` — **hard** alignment gate (column-bottom spread < 5 px, gap-to-footer in [30, 50] px, canvas-fill ∈ [95 %, 101 %] as a coarse diagnostic, and poster bbox aligns to the page within ±2 px — the bbox-alignment check is the authoritative full-canvas requirement).
   - `preflight` — static HTML lint (LaTeX residue, math `<`, missing images, role validation).
-  - `polish` — **soft** visual gate (figure sizing by AR, typography orphans, space-between fill). Warns by default; `--strict` to fail. Hard-fails if the poster has no `[data-measure-role]` markup at all (silent PASS would be a worse bug).
+  - `polish` — **soft** visual gate (figure sizing by AR, broken images, typography orphans, space-between fill). Warns by default; `--strict` to fail. Hard-fails if the poster has no `[data-measure-role]` markup at all (silent PASS would be a worse bug).
   - `verify-final` — `pdfinfo`-based PDF sanity (page count, dimensions, file size).
 - `render_preview.py` — Playwright print-emulated PDF + scaled PNG thumbnail.
 
