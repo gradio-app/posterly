@@ -8,10 +8,13 @@
            no external images — renders fully offline, single
            page, fills the canvas.
 
-  The example is deliberately small (one card filling the body
-  row) so it's robust to font / Chromium revision drift: any
-  multi-card alignment headache is the gallery in templates/'s
-  problem, not the install-verification fixture's.
+  The example is a single card FILLED with real content -- not
+  stretched with `flex: 1` + blank space to fake a full page (see
+  SKILL.md "Gate C -- the same trap, one card": a half-empty
+  stretched card passes every gate yet reads as a failed poster).
+  It stays single-card so it's robust to font / Chromium revision
+  drift; multi-card alignment is the templates/ gallery's job, not
+  this install-verification fixture's.
 
   Use:
     cd examples/hello_world
@@ -264,8 +267,25 @@
           <li><b>verify-final</b> &mdash; <code>pdfinfo</code>-based PDF sanity: page count, dimensions, file size.</li>
         </ul>
 
+        <div class="section-title" style="margin-top: calc(4 * var(--u))">Why measure, not eyeball</div>
+        <p class="body-text">
+          The screen preview <em>lies</em>: <code>@media print</code> uses a different unit scale, web fonts substitute, and a column that looks aligned on screen can sit 20&nbsp;px off in the printed PDF. <span class="keyword">posterly</span> renders at the exact print viewport and reports numbers &mdash; so &ldquo;looks aligned&rdquo; becomes <code>spread = 0.0 px</code>, or it doesn't.
+        </p>
+        <ul>
+          <li><b>Fill, don't stretch.</b> A card padded out with <code>flex: 1</code> clears the bottom-edge gate while half of it is blank &mdash; balance it with real content, never whitespace.</li>
+          <li><b>Autocrop figures</b> so the image fills its card instead of floating in a gray margin.</li>
+          <li><b>Guard trailing glyphs</b> (<code>&times;</code>, <code>&uarr;</code>, <code>%</code>) with <code>white-space: nowrap</code> so a lone symbol never orphans onto its own line.</li>
+        </ul>
+
+        <div class="section-title" style="margin-top: calc(4 * var(--u))">What's in the box</div>
+        <ul>
+          <li><b>templates/</b> &mdash; portrait 2-column, landscape 4-column, and hero gallery, each pre-wired with the measurement roles.</li>
+          <li><b>tools/</b> &mdash; the four-gate <code>poster_check.py</code> CLI plus a standalone <code>render_preview.py</code>.</li>
+          <li><b>examples/</b> &mdash; this file: the smallest poster that clears every gate, your install check.</li>
+        </ul>
+
         <p class="body-text" style="margin-top: calc(3 * var(--u))">
-          This single-card example demonstrates every measurement role the gates look for: <span class="keyword">poster, header, body, column, card, footer-strip, footer</span>. For real multi-column posters, copy a template from <code>templates/</code> instead.
+          This example demonstrates every measurement role the gates look for: <span class="keyword">poster, header, body, column, card, footer-strip, footer</span>. For real multi-column posters, copy a template from <code>templates/</code> instead.
         </p>
       </div>
 
