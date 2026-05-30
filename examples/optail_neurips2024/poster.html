@@ -201,11 +201,13 @@
   .flow-box .fb-note { font-family: var(--font-sans); font-size: calc(9 * var(--u)); color: var(--text-secondary); margin-top: calc(1 * var(--u)); line-height: 1.12; }
   .flow-arrow { display: flex; align-items: center; font-size: calc(18 * var(--u)); color: var(--accent); font-weight: 800; }
   .flow-loop {
-    display: flex; align-items: center; justify-content: center;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; gap: calc(0.5 * var(--u));
     font-family: var(--font-sans); font-size: calc(10.5 * var(--u)); font-weight: 700;
     color: var(--accent); white-space: nowrap;
     border-left: calc(2 * var(--u)) dashed var(--accent-soft); padding-left: calc(8 * var(--u));
   }
+  .flow-loop .fl-icon { font-size: calc(15 * var(--u)); line-height: 1; }
 
   /* ===================== BODY: 2 text columns + 1 double-width figure column ===================== */
   .body-grid {
@@ -466,7 +468,7 @@
         <div class="fb-step">Greedy policy</div>
         <div class="fb-eq">$\pi^k_h(s)=\arg\max_a Q^k_h(s,a)$</div>
       </div>
-      <div class="flow-loop">&#8635;<br>repeat<br>$K$ iters</div>
+      <div class="flow-loop"><span class="fl-icon">&#8635;</span><span>repeat</span><span>$K$ iters</span></div>
     </div>
   </section>
 
