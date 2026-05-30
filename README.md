@@ -18,6 +18,8 @@ A poster in `posterly` is **one HTML file** styled for an exact print canvas. Th
 
 Three real conference posters — built with `posterly` from **publicly-available papers** (the authors' own) and shipped here as worked examples. Every one passes `preflight`, `measure`, and `polish`; click a thumbnail for the print-ready PDF, or open the editable source under `examples/`.
 
+*Tooling: each was produced by **Claude Opus 4.7 / 4.8** (reasoning effort `xhigh`) driving `posterly`, with **GPT-5.5** (`xhigh`) as the secondary model for the paper-to-poster content audit.*
+
 [![PowerFlow — ICML 2026 poster](docs/showcase/powerflow_icml2026.jpg)](docs/showcase/powerflow_icml2026.pdf)
 
 **PowerFlow: Unlocking the Dual Nature of LLMs via Principled Distribution Matching** · ICML 2026 · Chen, Chen, Li, Huang (IIIS, Tsinghua) · [arXiv](https://arxiv.org/abs/2603.18363) · [code](https://github.com/Chenruishuo/PowerFlow) · [source](examples/powerflow_icml2026/poster.html) · [PDF](docs/showcase/powerflow_icml2026.pdf)
