@@ -102,7 +102,7 @@ python -m playwright install chromium
 python -m pytest          # or: pytest -q
 ```
 
-Tests cover canvas parsing (incl. named sizes + `@page` extraction), preflight math-delimiter coverage, line-number preservation, polish role-validation, and the `verify-final` input gates. The `pdfinfo` round-trip is exercised by `examples/hello_world` rather than a unit test.
+Tests cover canvas parsing (incl. named sizes + `@page` extraction), preflight math-delimiter coverage, line-number preservation, polish role-validation, the `measure` / `polish` nav-timeout fail-fast, and the `verify-final` input gates plus its `pdfinfo` parsing / dimension-and-rotation logic (via a monkeypatched `pdfinfo`, no Poppler needed). The end-to-end `pdfinfo` round-trip on a real PDF is exercised by `examples/hello_world`.
 
 ---
 

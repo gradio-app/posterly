@@ -1,6 +1,8 @@
-"""verify-final: --canvas vs --from-html mutual-exclusion + missing-input
-behaviour. Doesn't exercise pdfinfo (system dep, integration-tested via
-the hello_world smoke test in CI)."""
+"""verify-final tests: --canvas vs --from-html mutual-exclusion +
+missing-input behaviour, plus pdfinfo parsing / dimension-and-rotation
+logic via a monkeypatched pdfinfo (no Poppler needed). The end-to-end
+pdfinfo round-trip on a real PDF is covered by the hello_world smoke
+test."""
 from __future__ import annotations
 
 import argparse

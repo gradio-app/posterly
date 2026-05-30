@@ -75,7 +75,7 @@ def build_parser() -> argparse.ArgumentParser:
     pm.add_argument(
         "--allow-empty-column", action="store_true",
         help="don't fail when a column has no cards "
-             "(fallback to column.bottom — risky)",
+             "(fallback to column.bottom; risky)",
     )
     pm.add_argument(
         "--allow-no-footer-gap", action="store_true",
@@ -104,7 +104,7 @@ def build_parser() -> argparse.ArgumentParser:
     pm.add_argument(
         "--max-canvas-fill", type=float, default=1.01,
         help="hard gate: poster must NOT exceed this fraction of the "
-             "print viewport (default 1.01 — i.e. <=1% overshoot is "
+             "print viewport (default 1.01; i.e. <=1%% overshoot is "
              "tolerated for sub-pixel rounding). The symmetric of "
              "--min-canvas-fill catches the case where a hardcoded "
              "`width` in px exceeds `@page size`.",

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""render_preview — render a poster HTML to print-ready PDF + thumbnail.
+"""render_preview - render a poster HTML to print-ready PDF + thumbnail.
 
 Canvas-agnostic: reads ``@page { size: <W> <H> }`` from the input HTML
 or accepts ``--canvas '<W>x<H>in'`` / ``--canvas 'A0 portrait'`` as
@@ -55,7 +55,7 @@ def main() -> int:
     p.add_argument(
         "--mathjax-timeout-ms", type=int, default=15000,
         help="timeout for MathJax typesetting (default 15000); "
-             "render is the SOFT path — timeout warns, not fails",
+             "render is the SOFT path; timeout warns, not fails",
     )
     p.add_argument(
         "--canvas", type=_canvas.parse_canvas_arg, default=None,

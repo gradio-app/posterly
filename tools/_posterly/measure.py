@@ -77,15 +77,17 @@ def cmd_measure(args: argparse.Namespace) -> int:
 
     with sync_playwright() as p:
         browser, _ctx, page = _render.open_print_emulated_page(p, viewport)
+        nav_timed_out = False
         try:
             page.goto(html_path.as_uri(), wait_until="networkidle",
                       timeout=args.mathjax_timeout_ms)
         except PWTimeoutError:
-            # A hung/slow CDN (e.g. blocked MathJax) must not raw-traceback
-            # the hard gate. Bound the wait by --mathjax-timeout-ms; the
-            # settle_page check below detects a non-rendered MathJax and
-            # hard-fails with the documented message instead.
-            pass
+            # Don't raw-traceback on a hung/slow resource. Record it and
+            # let settle_page surface a MathJax-specific failure first;
+            # otherwise fail-fast below. A HARD gate must NOT measure a
+            # poster that never finished loading -- a blocked remote image
+            # or web font would otherwise sneak through as a false PASS.
+            nav_timed_out = True
 
         settle = _render.settle_page(
             page,
@@ -98,6 +100,16 @@ def cmd_measure(args: argparse.Namespace) -> int:
         if fail is not None:
             browser.close()
             _eprint(f"FAIL: {fail}")
+            return 1
+        if nav_timed_out:
+            browser.close()
+            _eprint(
+                "FAIL: page did not reach network-idle within "
+                f"{args.mathjax_timeout_ms} ms; refusing to measure a "
+                "partially loaded poster. A blocked/slow remote resource "
+                "(CDN image, web font, MathJax) is the usual cause -- "
+                "inline assets, or raise --mathjax-timeout-ms."
+            )
             return 1
 
         data = page.evaluate(_MEASURE_JS)
