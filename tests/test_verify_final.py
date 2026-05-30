@@ -117,6 +117,25 @@ def _patch_pdfinfo(monkeypatch, text=None, exc=None):
     monkeypatch.setattr(verify_final.subprocess, "check_output", fake)
 
 
+def test_from_html_unicode_basename_output_ascii(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """Round-13: the `(from --from-html (<name>))` label must stay ASCII
+    even when the HTML basename is Unicode (it leaked through `src`)."""
+    pdf = _real_pdf(tmp_path)
+    html = tmp_path / "张三.html"  # Unicode basename
+    html.write_text(
+        "<html><head><style>@page { size: 24in 36in }</style></head></html>",
+        encoding="utf-8",
+    )
+    _patch_pdfinfo(monkeypatch, text=_pdfinfo(w_pts=1728.0, h_pts=2592.0))
+    rc = verify_final.cmd_verify_final(
+        _args(pdf=str(pdf), from_html=str(html))
+    )
+    capsys.readouterr().out.encode("ascii")  # raises if basename leaked
+    assert rc == 0
+
+
 def test_correct_dimensions_pass(tmp_path, monkeypatch) -> None:
     pdf = _real_pdf(tmp_path)
     _patch_pdfinfo(monkeypatch, _pdfinfo())  # 24x36in, 1 page, rot 0

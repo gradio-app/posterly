@@ -176,3 +176,37 @@ def test_hero_figure_skips_card_ar_gates(tmp_path, monkeypatch, capsys) -> None:
     assert "FIG/WIDE" not in hero_combined        # suppressed for a hero
     assert "FIG/BROKEN" not in hero_combined      # valid natural size
     assert rc == 0
+
+
+def test_polish_unicode_path_stays_ascii(tmp_path, monkeypatch, capsys) -> None:
+    """Round-13: polish's OWN path echoes -- the missing-file error and
+    the `[polish] <name>` header -- must stay ASCII under a Unicode dir."""
+    _install_fake_playwright(monkeypatch)
+    d = tmp_path / "张三"  # Unicode dir
+    d.mkdir()
+    # (a) missing-file branch (reached after the fake-Playwright import).
+    rc = _polish.cmd_polish(_args(d / "nope.html"))
+    capsys.readouterr().err.encode("ascii")  # raises if path leaked
+    assert rc == 2
+    # (b) the `[polish] <name>` header on a real run under the Unicode dir.
+    poster = d / "poster.html"
+    poster.write_text(
+        "<html><head><style>@page { size: 24in 36in }</style></head>"
+        "<body><div data-measure-role=\"poster\">"
+        "<div data-measure-role=\"column\">"
+        "<div data-measure-role=\"card\"></div></div></div></body></html>",
+        encoding="utf-8",
+    )
+    page = _Page({"figures": [], "orphans": [], "cols": []})
+    monkeypatch.setattr(
+        _polish._render, "open_print_emulated_page",
+        lambda p, vp: (_Browser(), None, page),
+    )
+    monkeypatch.setattr(
+        _polish._render, "settle_page", lambda *a, **k: object())
+    monkeypatch.setattr(
+        _polish._render, "hard_fail_on_settle_problems", lambda *a, **k: None
+    )
+    rc = _polish.cmd_polish(_args(poster))
+    "".join(capsys.readouterr()).encode("ascii")  # raises if header leaked
+    assert rc == 0

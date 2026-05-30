@@ -198,9 +198,13 @@ def cmd_preflight(args: argparse.Namespace) -> int:
     for m in re.finditer(r'src\s*=\s*["\']([^"\']+)["\']', body,
                          re.IGNORECASE):
         src = m.group(1)
-        if src.startswith("data:"):
+        # Scheme matching is case-insensitive (browsers treat `HTTPS:` /
+        # `DATA:` like `https:` / `data:`); lower-case only for the scheme
+        # test, keep `src` raw for display and local-path resolution.
+        src_l = src.lower()
+        if src_l.startswith("data:"):
             continue
-        if src.startswith(("http://", "https://", "//")):
+        if src_l.startswith(("http://", "https://", "//")):
             ln = body[: m.start()].count("\n") + 1
             warnings.append(
                 f"L{ln}: remote image '{ascii_safe(src[:60])}' -- inline or "

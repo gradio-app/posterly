@@ -165,7 +165,7 @@ def cmd_polish(args: argparse.Namespace) -> int:
 
     html_path = Path(args.html).resolve()
     if not html_path.exists():
-        _eprint(f"ERROR: HTML not found: {html_path}")
+        _eprint(f"ERROR: HTML not found: {ascii_safe(html_path)}")
         return 2
 
     # Hard-fail if there's no measurement markup at all. A polish PASS
@@ -327,7 +327,7 @@ def cmd_polish(args: argparse.Namespace) -> int:
                 f"Gate C in SKILL.md."
             )
 
-    print(f"[polish] {html_path.name}")
+    print(f"[polish] {ascii_safe(html_path.name)}")
     print(f"  figures checked     : {len(data.get('figures', []))}")
     print(f"  stat-like elements  : {len(data.get('orphans', []))}")
     print(f"  space-between cols  : {len(data.get('cols', []))}")

@@ -72,7 +72,7 @@ def cmd_verify_final(args: argparse.Namespace) -> int:
             )
             return 2
         exp_w, exp_h = parsed
-        src = f"--from-html ({html_path.name})"
+        src = f"--from-html ({ascii_safe(html_path.name)})"
 
     # Preserve user PATH (Homebrew/conda/etc.) but force C locale so
     # pdfinfo number formatting is consistent across systems.

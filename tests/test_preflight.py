@@ -288,3 +288,26 @@ def test_unicode_path_stays_ascii_in_output(tmp_path, capsys) -> None:
     out = capsys.readouterr().out
     out.encode("ascii")  # raises if the Unicode header path leaked
     assert rc == 0
+
+
+def test_uppercase_scheme_treated_as_remote_not_missing(
+    tmp_path, capsys
+) -> None:
+    """Round-13: scheme matching is case-insensitive. An uppercase-scheme
+    remote / data URL must WARN (or stay silent), not hard-fail as a
+    missing local file -- a regression risk from making the attr-name
+    match case-insensitive."""
+    import argparse as _ap
+    p = tmp_path / "p.html"
+    p.write_text(
+        '<html><body><div data-measure-role="poster">'
+        '<img SRC="HTTPS://cdn.example.com/fig.png">'
+        '<img src="DATA:image/png;base64,AAAA">'
+        '</div></body></html>',
+        encoding="utf-8",
+    )
+    rc = preflight.cmd_preflight(_ap.Namespace(html=str(p)))
+    cap = capsys.readouterr()
+    assert rc == 0, "uppercase-scheme remote/data must not hard-fail"
+    assert "missing local image" not in cap.err
+    assert "remote image" in cap.out  # the HTTPS one still warned
