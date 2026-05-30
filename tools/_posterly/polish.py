@@ -148,7 +148,38 @@ _POLISH_JS = r"""
       });
     });
 
-  return {figures, orphans, cols};
+  // ---- 4) Card trailing whitespace (single stretched card) ----
+  // A card with flex:1 (or any stretch-to-fill) whose content is top-
+  // packed leaves blank space below the last line. `measure` only checks
+  // the card's bottom edge so it passes; Gate C only looks BETWEEN cards.
+  // Skip cards that distribute space on purpose (space-* / center / end)
+  // -- that is Gate C's territory or an intentional layout.
+  const cards = [];
+  document.querySelectorAll('[data-measure-role="card"]')
+    .forEach((card, ci) => {
+      const cs = window.getComputedStyle(card);
+      const jc = cs.justifyContent || '';
+      if (jc.indexOf('space') !== -1 || jc === 'center'
+          || jc === 'end' || jc === 'flex-end') return;
+      const cr = card.getBoundingClientRect();
+      if (cr.height <= 0) return;
+      const padB = parseFloat(cs.paddingBottom) || 0;
+      const padT = parseFloat(cs.paddingTop) || 0;
+      // bottom-most leaf descendant that actually renders
+      let maxB = cr.top + padT;
+      card.querySelectorAll('*').forEach(el => {
+        if (el.children.length) return;            // leaves only
+        const r = el.getBoundingClientRect();
+        if (r.height > 0 && r.bottom > maxB) maxB = r.bottom;
+      });
+      cards.push({
+        card_index: ci,
+        card_h: cr.height,
+        trailing_px: (cr.bottom - padB) - maxB,
+      });
+    });
+
+  return {figures, orphans, cols, cards};
 }
 """
 
@@ -327,10 +358,29 @@ def cmd_polish(args: argparse.Namespace) -> int:
                 f"Gate C in SKILL.md."
             )
 
+    # ---- Gate C (one card): trailing whitespace below the last line ----
+    for c in data.get("cards", []):
+        ch = float(c["card_h"])
+        tr = float(c["trailing_px"])
+        if ch <= 0 or tr <= 0:
+            continue
+        ratio = tr / ch
+        if ratio > args.max_card_trailing:
+            warns.append(
+                f"CARD/TRAILING: card {c['card_index']} fills only "
+                f"{100 - ratio * 100:.0f}% of its height -- {tr:.0f} px "
+                f"({ratio * 100:.0f}%) blank below the last line. A card "
+                f"stretched to align (flex:1) but padded with whitespace "
+                f"clears the bottom-edge gate yet reads as unfinished. Fill "
+                f"with real content, grow a figure, or shrink the canvas. "
+                f"See Gate C in SKILL.md."
+            )
+
     print(f"[polish] {ascii_safe(html_path.name)}")
     print(f"  figures checked     : {len(data.get('figures', []))}")
     print(f"  stat-like elements  : {len(data.get('orphans', []))}")
     print(f"  space-between cols  : {len(data.get('cols', []))}")
+    print(f"  cards checked       : {len(data.get('cards', []))}")
     print(f"  warnings            : {len(warns)}")
     for w in warns:
         print(f"  WARN: {w}")

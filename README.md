@@ -75,7 +75,7 @@ The four sanity-check CLIs at a glance:
 
 - `preflight`     — static lint: LaTeX residue, raw `<` inside math, missing local images, remote-image warnings (a print poster should be self-contained), missing `data-measure-role` markup.
 - `measure`       — print-emulated geometry: column-bottom spread, gap to footer, poster bbox aligned to the page.
-- `polish`        — soft visual checks: figure-AR sizing, broken/zero-size images (FIG/BROKEN), typography orphans, space-between fill.
+- `polish`        — soft visual checks: figure-AR sizing, broken/zero-size images (FIG/BROKEN), typography orphans, space-between fill, card trailing whitespace (CARD/TRAILING — a stretched card padded with blank space).
 - `verify-final`  — `pdfinfo`-based PDF sanity: page count, dimensions, file size.
 
 Detailed thresholds and tuning flags are in `SKILL.md`. See `templates/README.md` for the template gallery and the conventions a new template must follow.

@@ -159,7 +159,10 @@
   /* 80% width on an AR=2 figure → tall figures would be too big, but
      AR=2 wide fits comfortably AND satisfies polish Gate A's wide-min
      ratio (must be >= 65% of card width). */
-  .figure img { width: 80%; display: block; max-height: calc(80 * var(--u)); }
+  /* Natural aspect ratio (AR=2), no max-height cap: the figure carries
+     real vertical space instead of leaving the card half-blank, and
+     stays >= 65% width so polish Gate A doesn't flag it as too small. */
+  .figure img { width: 70%; display: block; }
   .figure .caption { font-family: var(--font-sans); font-size: calc(6 * var(--u)); color: var(--text-muted); margin-top: calc(1 * var(--u)); text-align: center; line-height: 1.2; }
 
   /* ---- footer-strip ---- */

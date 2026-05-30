@@ -169,6 +169,13 @@ def build_parser() -> argparse.ArgumentParser:
              "exceeding this fraction of column height (default 0.05)",
     )
     ppl.add_argument(
+        "--max-card-trailing", type=float, default=0.10,
+        help="warn (CARD/TRAILING) if a card leaves more than this "
+             "fraction of its height blank below the last line "
+             "(default 0.10); catches a flex-stretched card padded "
+             "with whitespace to fake a full page",
+    )
+    ppl.add_argument(
         "--strict", action="store_true",
         help="exit non-zero when any warning is emitted",
     )

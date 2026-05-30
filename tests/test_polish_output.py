@@ -64,7 +64,7 @@ def _args(html):
         html=str(html), canvas=None, settle_ms=500,
         mathjax_timeout_ms=15000, wide_min_ratio=0.65,
         tall_max_ratio=0.70, square_min_ratio=0.55,
-        max_space_between_fill=0.05, strict=False,
+        max_space_between_fill=0.05, max_card_trailing=0.10, strict=False,
     )
 
 
@@ -209,4 +209,35 @@ def test_polish_unicode_path_stays_ascii(tmp_path, monkeypatch, capsys) -> None:
     )
     rc = _polish.cmd_polish(_args(poster))
     "".join(capsys.readouterr()).encode("ascii")  # raises if header leaked
+    assert rc == 0
+
+
+def test_card_trailing_blank_warns(tmp_path, monkeypatch, capsys) -> None:
+    """A card stretched to align but padded with whitespace below the
+    last line must surface CARD/TRAILING (the single-card sibling of
+    Gate C; measure only checks the bottom edge so it can't see this)."""
+    data = {
+        "figures": [], "orphans": [], "cols": [],
+        "cards": [{"card_index": 0, "card_h": 1000.0, "trailing_px": 250.0}],
+    }
+    combined, rc = _run(monkeypatch, tmp_path, capsys, data)
+    assert "CARD/TRAILING" in combined  # 25% > 10% default
+    assert rc == 0                      # warn only (not --strict)
+
+
+def test_card_trailing_under_threshold_silent(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """A card filled within the threshold must NOT warn -- near-zero or
+    padding-only trailing is healthy breathing room, not a band."""
+    data = {
+        "figures": [], "orphans": [], "cols": [],
+        "cards": [
+            {"card_index": 0, "card_h": 1000.0, "trailing_px": 80.0},   # 8%
+            {"card_index": 1, "card_h": 1000.0, "trailing_px": 0.0},    # flush
+            {"card_index": 2, "card_h": 1000.0, "trailing_px": -3.0},   # rounding
+        ],
+    }
+    combined, rc = _run(monkeypatch, tmp_path, capsys, data)
+    assert "CARD/TRAILING" not in combined
     assert rc == 0
