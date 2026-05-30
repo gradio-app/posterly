@@ -8,7 +8,9 @@
 
 **This is a Claude Code skill, not a hosted service.** Clone, install, and either invoke `/posterly` from Claude Code or call the CLIs directly. There is no cloud, no signup, no telemetry.
 
-A poster in `posterly` is **one HTML file** styled for an exact print canvas. The skill ships three neutral templates, four sanity-check CLIs, and a render pipeline that produces a PDF at exact ICML / NeurIPS / ICLR / CVPR / ASP-DAC dimensions. Inside Claude Code, `/posterly` walks you through venue lookup → template pick → content fill → render — see `SKILL.md` for the full workflow Claude Code follows.
+> 🚧 **Codex version coming.** A Codex-compatible port is in the works — star the repo or open an issue if you'd use it; the open-source response decides whether it ships.
+
+A poster in `posterly` is **one HTML file** styled for an exact print canvas. The skill ships three neutral templates, four sanity-check CLIs, and a render pipeline that produces a PDF at exact ICML / NeurIPS / ICLR / CVPR dimensions. Inside Claude Code, `/posterly` walks you through venue lookup → template pick → content fill → render — see `SKILL.md` for the full workflow Claude Code follows.
 
 ---
 
@@ -40,6 +42,12 @@ Trade-off: no native math typesetting; templates load MathJax 3 from a CDN by de
 ---
 
 ## Install
+
+**The lazy way — hand it to your agent.** Paste this to Claude Code (or any coding agent):
+
+> Install this Claude Code skill for me: https://github.com/Chenruishuo/posterly
+
+It will clone the repo into `~/.claude/skills/`, install the Python deps, and run the smoke test. The manual steps below are the fallback (or for a non-agent setup).
 
 ```bash
 # 1. Clone into ~/.claude/skills/ for Claude Code auto-discovery
@@ -108,7 +116,7 @@ The three knobs you'll actually touch:
 
 - **Colors / fonts**: edit `:root` design tokens (`--accent`, `--gold`, `--font-serif`, …) in the template you copied.
 - **Logos**: drop into the same directory as `poster.html`, reference as `images/your_logo.png`.
-- **QR code**: templates ship with an inline SVG placeholder so they render offline. Generate a real QR with `qrencode -o qr.png -s 12 "<url>"` (Linux) or `python -c "import qrcode; qrcode.make('<url>').save('qr.png')"`, then change the QR `<img src=…>`.
+- **QR code**: give `/posterly` your paper/code URL and Claude generates the QR for you — the showcase posters' codes were made this way. Templates ship an inline SVG placeholder so they render offline; to make one by hand, `qrencode -o qr.png -s 12 "<url>"` (Linux) or `python -c "import qrcode; qrcode.make('<url>').save('qr.png')"`, then point the QR `<img src=…>` at it.
 
 ---
 
