@@ -4,14 +4,14 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 ![Python: 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)
-![Claude Code skill](https://img.shields.io/badge/Claude_Code-skill-7B2CBF.svg)
+![Agent skill](https://img.shields.io/badge/coding_agent-skill-7B2CBF.svg)
 
-**This is a Claude Code skill, not a hosted service.** Clone, install, and either invoke `/posterly` from Claude Code or call the CLIs directly. There is no cloud, no signup, no telemetry.
+**This is a coding-agent skill, not a hosted service.** Clone, install, and either invoke `/posterly` from your agent or call the CLIs directly. There is no cloud, no signup, no telemetry.
 
 > [!NOTE]
-> 🚧 **Codex version in the works.** A Codex-compatible port is on the way. If posterly is useful to you, a ⭐ and your suggestions / issues are always welcome!
+> **Built with Claude, works with Codex too.** posterly is developed primarily with Claude (Opus 4.7 / 4.8), but in testing Codex (GPT-5.5) drives it just as well — and any coding agent with skill support should be fine. Hit a snag? A ⭐ and an issue are always welcome!
 
-A poster in `posterly` is **one HTML file** styled for an exact print canvas. The skill ships three neutral templates, four sanity-check CLIs, and a render pipeline that produces a PDF at exact ICML / NeurIPS / ICLR / CVPR dimensions. Inside Claude Code, `/posterly` walks you through venue lookup → template pick → content fill → render — see `SKILL.md` for the full workflow Claude Code follows.
+A poster in `posterly` is **one HTML file** styled for an exact print canvas. The skill ships three neutral templates, four sanity-check CLIs, and a render pipeline that produces a PDF at exact ICML / NeurIPS / ICLR / CVPR dimensions. Inside your agent, `/posterly` walks you through venue lookup → template pick → content fill → render — see `SKILL.md` for the full workflow it follows.
 
 ---
 
@@ -59,14 +59,15 @@ Trade-off: no native math typesetting; templates load MathJax 3 from a CDN by de
 
 ## Install
 
-**The lazy way — hand it to your agent.** Paste this to Claude Code (or any coding agent):
+**The lazy way — hand it to your agent.** Paste this to your coding agent (Claude, Codex, …):
 
-> Install this Claude Code skill for me: https://github.com/Chenruishuo/posterly
+> Install this skill for me: https://github.com/Chenruishuo/posterly
 
 It will clone the repo into `~/.claude/skills/`, install the Python deps, and run the smoke test. The manual steps below are the fallback (or for a non-agent setup).
 
 ```bash
 # 1. Clone into ~/.claude/skills/ for Claude Code auto-discovery
+#    (other agents: point them at this dir however they load skills)
 git clone https://github.com/Chenruishuo/posterly ~/.claude/skills/posterly
 cd ~/.claude/skills/posterly
 
@@ -106,7 +107,7 @@ All four `poster_check.py` calls should print `PASS` and `render_preview.py` sho
 
 ```
 posterly/
-├── SKILL.md             ← workflow Claude Code follows when you /posterly
+├── SKILL.md             ← workflow your agent follows when you /posterly
 ├── tools/
 │   ├── poster_check.py  ← preflight / measure / polish / verify-final CLIs
 │   ├── render_preview.py← print-emulated PDF + thumbnail PNG
