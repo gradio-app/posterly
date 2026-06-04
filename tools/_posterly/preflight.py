@@ -7,6 +7,12 @@ Catches the classes of errors that would otherwise burn a render cycle:
   MathJax may HTML-parse it as a tag start depending on its loader mode.
 - Local ``src="..."`` images that don't exist on disk.
 - Missing or unknown ``data-measure-role`` values.
+- Measure-role nesting: each role is checked against the templates'
+  parent contract (e.g. ``card`` must sit inside a ``column``/``hero``,
+  not directly under ``body``). A misplaced ``</div>`` that closes the
+  body grid early would otherwise pass preflight + measure -- the body
+  ``1fr`` row absorbs the lost children, and the gap-to-strip number
+  goes off-canvas without surfacing the actual structural cause.
 
 The line numbers reported by preflight refer to **the original HTML file**.
 Earlier versions stripped ``<style>`` / ``<script>`` / ``<!-- … -->``
@@ -20,6 +26,7 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlsplit
@@ -31,6 +38,32 @@ from urllib.parse import unquote, urlsplit
 KNOWN_ROLES: set[str] = {
     "poster", "header", "banner", "body",
     "column", "card", "hero", "footer-strip", "footer",
+}
+
+
+# Required parent role(s) for each measure role, derived from the three
+# shipped templates (landscape_4col / landscape_hero / portrait_2col).
+# Multiple entries mean "any of these is OK". Roles whose parent must be
+# the document root (``poster``) are listed too. Empty tuple => no
+# constraint (e.g. ``poster`` itself, which is the root).
+#
+# Background: a misplaced ``</div>`` was the precipitating bug for this
+# gate. It closed ``.poster`` (the grid container) before its
+# ``footer-strip`` and ``footer`` children appeared in source order, so
+# those nodes ended up outside the grid. The browser tolerated it; the
+# CSS ``grid-template-rows: auto auto 1fr auto auto`` collapsed two
+# rows to 0 px without complaint; measure reported the strip top off-
+# canvas. This rule turns that silent failure into a preflight error
+# pointing at the role whose parent went wrong.
+ROLE_PARENTS: dict[str, tuple[str, ...]] = {
+    "header":       ("poster",),
+    "banner":       ("poster",),
+    "body":         ("poster",),
+    "footer-strip": ("poster",),
+    "footer":       ("poster",),
+    "column":       ("body",),
+    "hero":         ("body",),
+    "card":         ("column", "hero"),
 }
 
 
@@ -154,6 +187,120 @@ def _delim_label(body: str, segment: str) -> str:
     return "math"
 
 
+# Tags that the HTML spec lists as void / self-closing -- they have no
+# end tag and must never push onto the parser stack. Lower-cased; the
+# parser hands us tag names already lowered. Includes the long-tail
+# rare ones (``<keygen>``, ``<menuitem>``) the spec retains for parsers
+# even if browsers no longer render them, so a poster importing legacy
+# markup doesn't trip a false unbalance error.
+_VOID_TAGS: frozenset[str] = frozenset({
+    "area", "base", "br", "col", "embed", "hr", "img", "input",
+    "keygen", "link", "menuitem", "meta", "param", "source",
+    "track", "wbr",
+})
+
+
+class _RoleNestingChecker(HTMLParser):
+    """Walk the HTML and record each ``data-measure-role`` element's
+    nearest ancestor that itself carries a role.
+
+    Why a stack-based scanner and not a regex pass: the bug we want to
+    catch is a misplaced ``</div>`` that closes ``.poster`` early, so a
+    ``footer-strip`` later in source order ends up *outside* the
+    poster. A regex over ``data-measure-role`` would still see the
+    strip and call it good. The browser tolerates the unbalanced markup
+    silently; only an actual nesting model surfaces the lost ancestry.
+
+    The parser intentionally does NOT bail on every minor unbalance --
+    HTMLParser's recovery is generous and matches the browser's --
+    because we only care about role-bearing ancestry. We do, however,
+    catch the *gross* unbalance case: a ``</tag>`` that finds no
+    matching opener on the stack. That is almost always the symptom of
+    the same misplaced-``</div>`` bug.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        # Stack entries: (tag, role_or_None, line_number).
+        self.stack: list[tuple[str, str | None, int]] = []
+        # One entry per role-bearing element seen, in source order:
+        # (role, parent_role_or_None, line, tag).
+        self.roles: list[tuple[str, str | None, int, str]] = []
+        # Lines where ``</tag>`` had no matching opener.
+        self.stray_close_lines: list[tuple[str, int]] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]
+                        ) -> None:
+        role: str | None = None
+        for k, v in attrs:
+            if k == "data-measure-role" and v is not None:
+                role = v.strip()
+                break
+        line = self.getpos()[0]
+        if role is not None:
+            # Parent role = the nearest ancestor on the stack that carries
+            # a role. None means the element is at document root or only
+            # nested inside non-role wrappers.
+            parent_role: str | None = None
+            for _t, r, _ln in reversed(self.stack):
+                if r is not None:
+                    parent_role = r
+                    break
+            self.roles.append((role, parent_role, line, tag))
+        if tag.lower() not in _VOID_TAGS:
+            self.stack.append((tag, role, line))
+
+    def handle_startendtag(self, tag: str,
+                           attrs: list[tuple[str, str | None]]) -> None:
+        # ``<foo />`` self-closing form. Record any role but DON'T push.
+        role: str | None = None
+        for k, v in attrs:
+            if k == "data-measure-role" and v is not None:
+                role = v.strip()
+                break
+        if role is not None:
+            line = self.getpos()[0]
+            parent_role: str | None = None
+            for _t, r, _ln in reversed(self.stack):
+                if r is not None:
+                    parent_role = r
+                    break
+            self.roles.append((role, parent_role, line, tag))
+
+    def handle_endtag(self, tag: str) -> None:
+        # Pop until we find the matching opener. If none is found, the
+        # closer is stray -- record it and leave the stack alone (the
+        # browser would do the same, just silently).
+        for i in range(len(self.stack) - 1, -1, -1):
+            if self.stack[i][0] == tag:
+                # Pop everything from i onward; entries above are
+                # implicitly unclosed (HTMLParser does not auto-close)
+                # but treating them as closed here matches browser
+                # recovery and avoids a cascade of false stray-close
+                # reports for the rest of the document.
+                del self.stack[i:]
+                return
+        self.stray_close_lines.append((tag, self.getpos()[0]))
+
+
+def check_role_nesting(html: str
+                       ) -> tuple[list[tuple[str, str | None, int, str]],
+                                  list[tuple[str, int]]]:
+    """Return ``(roles, stray_closes)``.
+
+    ``roles`` is one entry per role-bearing element in source order:
+    ``(role, parent_role_or_None, line, tag)``. ``stray_closes`` lists
+    every ``</tag>`` that had no opener on the stack at close time --
+    almost always the proximate cause when ``measure`` reports the
+    footer-strip rendered off-canvas. Pure function so the rule can be
+    unit-tested without touching the filesystem or a browser.
+    """
+    parser = _RoleNestingChecker()
+    parser.feed(html)
+    parser.close()
+    return parser.roles, parser.stray_close_lines
+
+
 def cmd_preflight(args: argparse.Namespace) -> int:
     html_path = Path(args.html).resolve()
     if not html_path.exists():
@@ -261,7 +408,41 @@ def cmd_preflight(args: argparse.Namespace) -> int:
                 f"(allowed: {sorted(KNOWN_ROLES)})"
             )
 
-    # 6) Soft sanity: no <title> / no <h1>. Warns, doesn't fail.
+    # 6) Role nesting: each role must sit inside its required parent
+    #    role per ROLE_PARENTS. The precipitating bug was a misplaced
+    #    `</div>` that closed `.poster` early -- the count of opens and
+    #    closes was still balanced (the extra `</div>` made some other
+    #    legitimate close stray), but `footer-strip` ended up outside
+    #    the grid so its row collapsed to 0 px. Catching it requires
+    #    looking at the parent role of every role-bearing element, not
+    #    just the totals.
+    #
+    #    Stray closer detection is intentionally NOT enforced here:
+    #    HTMLParser's recovery (and the browser's) eagerly rebalances
+    #    in ways that mask which `</tag>` was actually misplaced, so a
+    #    naive "stray close" count fires on the wrong line. The
+    #    parent-role check below catches the *visible symptom* (a role
+    #    in the wrong layout slot) which is what measure would
+    #    eventually report off-canvas anyway.
+    #
+    #    Note: the parser is fed RAW html (script/style intact) -- it
+    #    already skips inside `<script>` and `<style>` properly.
+    role_records, _stray = check_role_nesting(raw)
+    for role, parent, ln, _tag in role_records:
+        expected = ROLE_PARENTS.get(role)
+        if not expected:
+            continue
+        if parent not in expected:
+            shown_parent = parent if parent is not None else "(document root)"
+            problems.append(
+                f"L{ln}: data-measure-role='{ascii_safe(role)}' is nested "
+                f"inside {ascii_safe(shown_parent)}; expected parent role "
+                f"in {sorted(expected)}. A misplaced `</div>` is the usual "
+                "cause -- it closes a grid container early so the role "
+                "ends up outside its layout slot."
+            )
+
+    # 7) Soft sanity: no <title> / no <h1>. Warns, doesn't fail.
     if not re.search(r"<title[^>]*>.+?</title>", raw, re.DOTALL):
         warnings.append("no <title> set")
     if not re.search(r"<h1\b", raw):

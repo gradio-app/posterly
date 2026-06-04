@@ -58,6 +58,46 @@ _MEASURE_JS = r"""
 """
 
 
+def compute_adjustment_hints(
+    bottoms: list[tuple[str, float]],
+    strip_top: float,
+    *,
+    min_gap: float,
+    max_gap: float,
+    keep_tol_px: float = 5.0,
+) -> tuple[float, float, list[tuple[str, float, str]]]:
+    """Per-column adjustment hints for a failed measure run.
+
+    Returns ``(target_gap, target_bottom, adjustments)`` where
+    ``adjustments`` is one ``(name, current_bottom, hint)`` per column /
+    hero row. ``hint`` is one of:
+
+      * ``"keep"`` -- |delta| <= ``keep_tol_px``; not worth touching
+        because a single wrapped line of body text is ~25 px and edits
+        below that don't reliably change the column bottom.
+      * ``"grow ~N px"`` -- column needs to be taller (delta > 0).
+      * ``"trim ~N px"`` -- column needs to be shorter (delta < 0).
+
+    The target is ``strip_top - (min_gap + max_gap) / 2``: aim for the
+    centre of the gap band so a small post-edit drift in either direction
+    still passes the gate. Pure function so the rule is unit-testable
+    without spinning up Chromium.
+    """
+    target_gap = (min_gap + max_gap) / 2.0
+    target_bottom = strip_top - target_gap
+    out: list[tuple[str, float, str]] = []
+    for name, b in bottoms:
+        delta = target_bottom - b  # +ve grow, -ve trim
+        if abs(delta) <= keep_tol_px:
+            hint = "keep"
+        elif delta > 0:
+            hint = f"grow ~{int(round(delta))} px"
+        else:
+            hint = f"trim ~{int(round(-delta))} px"
+        out.append((name, b, hint))
+    return target_gap, target_bottom, out
+
+
 def cmd_measure(args: argparse.Namespace) -> int:
     try:
         from playwright.sync_api import sync_playwright
@@ -393,5 +433,41 @@ def cmd_measure(args: argparse.Namespace) -> int:
     if ok:
         print("[measure] PASS")
         return 0
+
+    # Failure path: surface per-column adjustment hints so the next
+    # iteration is a directed edit, not a guess. The math is mechanical
+    # (strip_top - target_gap = target_bottom; signed delta per column),
+    # but readers reliably mis-derive it under time pressure -- a fixed
+    # gate failure was costing roughly an extra rebuild per loop. Only
+    # print when the geometry is sane enough to give a meaningful target:
+    # we need a footer-strip/footer (the anchor) and at least one column
+    # bottom. Skip when the only failure is `spread`-without-strip; the
+    # raw column dump above is already actionable in that case.
+    if next_strip is not None and bottoms:
+        target_gap, target_bottom, adjustments = compute_adjustment_hints(
+            bottoms,
+            next_strip["y"],
+            min_gap=args.min_gap,
+            max_gap=args.max_gap,
+        )
+
+        print()
+        print("[measure] suggested adjustments:")
+        print(
+            f"  target col bottom = {target_bottom:.0f} px"
+            f"  (footer-strip/footer top {next_strip['y']:.0f} px"
+            f"  - target gap {target_gap:.0f} px)"
+        )
+        for name, b, hint in adjustments:
+            print(f"  {name:6s}  {b:8.2f} px -> {hint}")
+        print(
+            "  Tip: a body paragraph adds/removes ~25 px per wrapped line,"
+            " a callout ~60-90 px,"
+        )
+        print(
+            "       a small figure ~80-150 px. Prefer trimming the tallest"
+            " column first."
+        )
+
     _eprint("[measure] FAIL -- alignment gate not met")
     return 1
