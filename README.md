@@ -117,6 +117,19 @@ All four `poster_check.py` calls should print `PASS` and `render_preview.py` sho
 
 ---
 
+## Make your poster
+
+Once installed, just point your agent at the paper's source directory:
+
+> /posterly — make my ICML 2026 poster from the LaTeX project at ~/papers/mypaper/. Logos are in ~/papers/mypaper/logos/, QR should point to https://github.com/you/yourcode
+
+The paper source is the only required input — hand over the LaTeX project directory (an easily-parsed format like Word should also do) and posterly reads the actual source, so numbers and claims come from the paper, not from memory. Logos and the QR target URL are optional: anything you don't hand over up front, the skill asks about in one batch of design questions before it starts (and degrades gracefully if the answer is "none" — text venue badge, no empty logo/QR boxes).
+
+> [!NOTE]
+> Building straight from a **PDF** is untested. It may still work if your agent has a screenshot / figure-extraction tool, or if the poster doesn't need to reuse the paper's figures — if you try it, an issue with your result is welcome!
+
+---
+
 ## What's in here
 
 ```
