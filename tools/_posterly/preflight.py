@@ -61,8 +61,11 @@ ROLE_PARENTS: dict[str, tuple[str, ...]] = {
     "body":         ("poster",),
     "footer-strip": ("poster",),
     "footer":       ("poster",),
-    "column":       ("body",),
-    "hero":         ("body",),
+    # ``poster`` is allowed for column/hero because ``body`` was never
+    # required by any gate -- a poster hanging its columns directly off
+    # the root is valid today and measures fine.
+    "column":       ("body", "poster"),
+    "hero":         ("body", "poster"),
     "card":         ("column", "hero"),
 }
 

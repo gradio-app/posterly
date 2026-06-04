@@ -211,3 +211,27 @@ def test_hero_template_card_under_hero_passes(tmp_path) -> None:
     )
     rc, _out, err = _run(html, tmp_path)
     assert rc == 0, f"expected PASS, got: {err!r}"
+
+
+def test_body_less_layout_column_under_poster_passes(tmp_path) -> None:
+    """``body`` has never been *required* by any gate -- ``measure``
+    doesn't read it and ``preflight``/``polish`` only require presence
+    for ``poster``/``column``/``card``. A poster hanging its columns
+    (or ``hero``) directly off the poster root is valid today and must
+    not be retroactively rejected by the nesting rule."""
+    html = (
+        '<!DOCTYPE html><html><head><title>x</title></head><body>\n'
+        '<div data-measure-role="poster">\n'
+        '  <header data-measure-role="header"><h1>t</h1></header>\n'
+        '  <div data-measure-role="column">\n'
+        '    <div data-measure-role="card">c</div>\n'
+        '  </div>\n'
+        '  <section data-measure-role="hero">\n'
+        '    <div data-measure-role="card">h</div>\n'
+        '  </section>\n'
+        '  <section data-measure-role="footer-strip">strip</section>\n'
+        '</div>\n'
+        '</body></html>\n'
+    )
+    rc, _out, err = _run(html, tmp_path)
+    assert rc == 0, f"expected PASS on a body-less layout, got: {err!r}"
