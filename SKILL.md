@@ -58,11 +58,71 @@ Procedure:
 Don't pick a template, colors, logos, or a QR target silently. Ask the user, in one batch (≤ 4 questions — the AskUserQuestion cap):
 
 - **Layout**: "Which gallery template fits best? (a) 4-column landscape, (b) hero + supporting column landscape, (c) 2-column portrait." Show them `templates/README.md`'s table.
-- **Palette**: "Lab/venue colors? E.g. `#XXX` accent + `#YYY` highlight. Default = neutral slate-blue + gold."
+- **Palette**: "Lab/venue colors? E.g. `#XXX` accent + `#YYY` highlight — or say 'you pick'." When the user gives colors, use them. When they don't, do **not** silently fall back to the one house style: derive a poster-specific palette from the materials at hand (**§Palette derivation** below) and propose it in this same round — "suggest `#660874` from the Tsinghua brand — OK?" — so the user can veto cheaply. The neutral slate-blue + gold shipped in the templates is the *last-resort* fallback, not the default.
 - **Logos & venue mark**: "Any logos to place? Affiliation / lab logo, and the conference / journal logo — give paths or URLs, or say 'none'." Don't assume a venue logo is wanted; cross-check the logo policy from Step 0 (some venues forbid them). When logo files are provided, inspect each one (aspect ratio, transparency, background — Step 2 item 5) and pick a size class + chip treatment per **Gate E — Header logos** below; don't just drop them in at the default size.
 - **QR code**: "Want a QR code? If so, pointing at which link — paper / arXiv / code repo / project page — or none?" Generate it **offline** as a local image (see Customizing in README / `qrencode`); never leave a remote QR-service URL in the poster — it hangs `measure`'s networkidle wait and link-rots in print/archive.
 
 Persist the user's answers as you go — re-reading them later prevents "improvement" loops that revert deliberate decisions.
+
+### Palette derivation (when the user has no color preference)
+
+A paper already carries brand signals — the default palette should be **derived from them, not house-styled**. Pick the seed color from whichever signal is strongest for *this* poster (judgment call, no fixed priority):
+
+- **Affiliation brand color** — the official identity color of the dominant lab/university (your own knowledge or a quick web check: Tsinghua purple, MIT cardinal, ETH blue…). Strongest choice when one affiliation dominates the author list.
+- **A provided logo** — extract its dominant saturated color (snippet below).
+- **Venue identity** — if the conference has a recognizable brand color.
+- **The paper's own figures** — dominant hue of the headline figure; the poster then echoes its figures.
+- **Field/topic conventions** — weakest signal; use only when nothing above gives a usable color.
+
+Whatever the source, the seed feeds one fixed recipe — the rebrand surface is the same six tokens in every template (`--accent`, `--accent-deep`, `--accent-light`, `--accent-soft`, `--gold`, `--gold-soft`):
+
+```python
+from collections import Counter
+from PIL import Image
+
+def rel_lum(rgb):
+    c = [v / 255 for v in rgb]
+    c = [v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4 for v in c]
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+
+def contrast(a, b):
+    la, lb = sorted((rel_lum(a), rel_lum(b)), reverse=True)
+    return (la + 0.05) / (lb + 0.05)
+
+def mix(rgb, other, t):  # t=0 -> rgb, t=1 -> other
+    return tuple(round(v + (o - v) * t) for v, o in zip(rgb, other))
+
+# 1) Seed. From an IMAGE (logo / headline figure): dominant saturated
+#    mid-tone, bucketed so JPEG noise doesn't split the vote. From a BRAND
+#    GUIDELINE: just set `seed` to the official hex and skip this block.
+im = Image.open("images/lab-logo.png").convert("RGBA")
+im.thumbnail((128, 128))
+px = [(r, g, b) for r, g, b, a in im.getdata() if a > 128]
+cands = Counter((r // 32, g // 32, b // 32) for r, g, b in px
+                if max(r, g, b) - min(r, g, b) > 40       # saturated enough
+                and 60 < (r + g + b) / 3 < 200)           # mid-tone
+seed = (tuple(v * 32 + 16 for v in cands.most_common(1)[0][0])
+        if cands else None)  # None = this image has no usable seed --
+                             # try the next signal source, neutral only last
+
+# 2) Tokens. Darken the seed until white text clears WCAG AA on it (the
+#    same 4.5:1 also covers accent-as-text on white -- symmetric pair).
+accent = seed
+while contrast(accent, (255, 255, 255)) < 4.5:
+    accent = mix(accent, (0, 0, 0), 0.08)
+fmt = lambda c: "#%02X%02X%02X" % c
+print(f"--accent: {fmt(accent)};  --accent-deep: {fmt(mix(accent, (0, 0, 0), 0.30))};")
+print(f"--accent-light: {fmt(mix(accent, (255, 255, 255), 0.90))};  "
+      f"--accent-soft: {fmt(mix(accent, (255, 255, 255), 0.82))};")
+print(f"white-on-accent contrast: {contrast(accent, (255, 255, 255)):.1f}:1")
+```
+
+Rules that hold regardless of seed source:
+
+- **Print-safe accent**: muted-to-medium saturation, medium-dark value. The AA loop above enforces the dark end; if a brand color is neon-bright, mute it toward the template's tone rather than shipping fluorescent ink.
+- **Secondary (`--gold`) stays unless it clashes**: the warm gold works as "ours/best" emphasis against any *cool* accent. If the seed itself is warm (red/orange/yellow hue), swap the secondary to a deep cool neutral (e.g. `#3D4A5C`) so emphasis still pops; derive `--gold-soft` as its ~90% white tint.
+- **Backgrounds stay near-white** (`--bg-page`/`--bg-card` untouched, or at most a faint seed-hued tint). Print legibility and every downstream check assume a light poster.
+- **Echo the choice**: state the seed source and final tokens to the user (Step 0.5 round) and record them in your build notes — "accent #660874 from Tsinghua brand; gold kept" — so a later edit doesn't "correct" a deliberate derivation back to neutral.
 
 ### Step 1 — Confirm content & figures
 
