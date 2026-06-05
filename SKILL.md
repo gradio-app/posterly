@@ -151,6 +151,11 @@ Targets (defaults; configurable via flags):
 - canvas-fill < 95 % (diagnostic fired first): poster forgot `@media print { :root { --u: 1mm } }` so it renders at screen scale. Add the override.
 - canvas-fill > 101 % (diagnostic fired first): hardcoded `width: 1600px` (or similar non-`--u`-based size) exceeds `@page`. Replace with `calc(N * var(--u))`.
 
+**Fine-tuning levers — continuous vs. quantized.** The fixes above move height in ~one-line jumps; the last few px to reach `spread < 5` need a *continuous* lever, and not every knob is one:
+- **Figure width is continuous only when the figure is the column's bottom-most element** — a centered/stacked figure, or a float tall enough that text never extends below it. In a float-*wrap* where text flows *below* the figure, widening it toggles whole text lines (one session: 48 % → 2823 px, 51 % → 3351 px — a 528 px jump for +3 %) and in the text-dominated regime it does nothing at all. Don't use figure width for sub-line alignment there.
+- **For a sub-line residual, add `padding-bottom` to the column's *last card*** — continuous and zero-reflow (text doesn't re-wrap), and `measure` reads the card's border-box bottom so it raises the column cleanly. Lever of last resort, *only* for a < ~1-line residual on a normal-flow, auto-height last card (a `flex:1` / fixed-height card won't grow this way). A *large* padding-bottom is a Gate-C smell, not this — it will (and should) trip `CARD/TRAILING`; fill big gaps with real content instead.
+- **`line-height` set on a `.card` won't reach its text** — `.card p` / `.card li` carry their own `line-height` (higher specificity), so it silently no-ops. Override the text elements directly if you must compress line spacing.
+
 `poster_check.py measure` also has these safety nets (so a false PASS shouldn't happen):
 - Missing `[data-measure-role="poster"]` = hard fail.
 - Empty columns = hard fail (override: `--allow-empty-column`).
@@ -228,11 +233,11 @@ A figure too small for its column is more wasteful than one too big. Pick width 
 |---|---|---|---|
 | `AR > 1.3` | Wide (workflow diagram, comparison chart) | **70–100%** of card width | < **65%** ⇒ FIG/WIDE. Avoid image-left/text-right in a narrow column — text gets squeezed to nothing (deliberate, balanced exception: the `data-fig-layout="beside-text"` opt-out below). |
 | `0.8 ≤ AR ≤ 1.3` | Square-ish (block diagram, scatter) | **55–75%** of card width | < **55%** ⇒ FIG/SQUARE. |
-| `AR < 0.8` | Tall (multi-series bar, long pipeline) | **45–60%**, paired with **text-right** | > **70%** at full width ⇒ FIG/TALL (recommends side text). |
+| `AR < 0.8` | Tall (multi-series bar, long pipeline) | **45–60%** (centered if text-sparse, **wrapped** if text-rich) | < **36%** centered ⇒ FIG/TALL-SMALL (small + side voids); > **70%** ⇒ FIG/TALL. |
 
-Thresholds are tunable via `--wide-min-ratio` / `--square-min-ratio` / `--tall-max-ratio`. The defaults are the "aim for" lower bound, so anything inside the documented "aim for" range passes the gate cleanly.
+Thresholds are tunable via `--wide-min-ratio` / `--square-min-ratio` / `--tall-max-ratio` / `--tall-min-ratio`. The defaults bracket the documented "aim for" range, so a figure inside it passes cleanly. `--tall-min-ratio` (default **0.36**) is a *hard floor, not the ideal* — a centered tall figure rendering below it (≈ a 64%+ symmetric side void) is the recurring "figure too small" bug; the ideal is still 45–60%. The floor is measured as **rendered width ÷ card width**, which runs a few points below the CSS `width:%` (card padding), so calibrate against the rendered figure, not the style value. Because `polish` is soft, a borderline figure you've consciously accepted can keep its WARN; raise the floor and run `--strict` if you want it enforced.
 
-A figure whose `<img>` fails to load (missing file, 404, or unreachable remote URL) reports zero natural size and warns as **FIG/BROKEN** — it will be blank in print. SVGs are exempt (they legitimately report zero intrinsic size). The probe covers both card and hero-panel `<img>` (the hero centerpiece is the worst image to silently lose); the AR sizing gates stay card-only. One known gap: an SVG served from an extensionless URL still slips through the exemption heuristic.
+A figure whose `<img>` fails to load (missing file, 404, or unreachable remote URL) reports zero natural size and warns as **FIG/BROKEN** — it will be blank in print. An SVG legitimately reports zero intrinsic size, so it's exempt from FIG/BROKEN — but the AR sizing gates **still apply to it**, computed from its **rendered** aspect ratio (so a too-small/too-wide SVG figure is not silently exempt). The probe covers both card and hero-panel `<img>` (the hero centerpiece is the worst image to silently lose); the AR sizing gates stay card-only. One known gap: an SVG served from an extensionless URL still slips the FIG/BROKEN exemption heuristic (gets wrongly flagged broken).
 
 Concrete bad case (prior session): `co-consideration.png` (AR ≈ 1.41) shipped at 41 % column width. The whitespace beside it conveyed nothing and the figure was unreadable from 2 m. Fix: 66 % width, no text-right.
 
@@ -243,7 +248,29 @@ Concrete bad case (prior session): `co-consideration.png` (AR ≈ 1.41) shipped 
      data-fig-layout="beside-text" style="width: 100%">
 ```
 
-This skips the AR width gates (FIG/WIDE / FIG/SQUARE / FIG/TALL) for that image only — **FIG/BROKEN still applies** (a blank image is a bug regardless of intent). The attribute records the design decision *in the markup*, so a later edit (human or agent) reads "this figure is intentionally beside text" and leaves the layout alone instead of widening it to silence the warning. Use it only after you've eyeballed the render and confirmed the text column isn't squeezed — it is an opt-out for a *verified-good* layout, not a way to mute a real warning. `examples/powerflow_icml2026/poster.html` uses it on its training-dynamics card.
+This skips the AR width gates (FIG/WIDE / FIG/SQUARE / FIG/TALL / FIG/TALL-SMALL) for that image only — **FIG/BROKEN still applies** (a blank image is a bug regardless of intent). The attribute records the design decision *in the markup*, so a later edit (human or agent) reads "this figure is intentionally beside text" and leaves the layout alone instead of widening it to silence the warning. Use it only after you've eyeballed the render and confirmed the text column isn't squeezed — it is an opt-out for a *verified-good* layout, not a way to mute a real warning. `examples/powerflow_icml2026/poster.html` uses it on its training-dynamics card.
+
+**Center vs. wrap a tall figure (AR < 0.8).** A tall figure is *too small* just as easily as too wide — shrunk to ~35 % and centered it's illegible with a big symmetric side void on each margin (the recurring bug `FIG/TALL-SMALL` now catches below a 36 % rendered width). Which layout to use is driven by **how much text shares the card**:
+
+- **Text-rich card → wrap** the figure: text flows *beside and below* it, so the image can be large. Float it with `.fig-wrap` / `.ff-fig` (shipped in every template) and mark the `<img>` `data-fig-layout="beside-text"`. The figure **and** its surrounding text must live inside one `.fig-wrap` — the clearfix is what makes the card grow to contain the float; a bare floated `<img>` escapes the card box and `measure` then reads the wrong card bottom.
+
+  ```html
+  <div class="card" data-measure-role="card">
+    <div class="section-title">…</div>
+    <div class="fig-wrap">
+      <figure class="ff-fig" style="width: 49%">
+        <img src="images/arch.png" data-fig-layout="beside-text">
+        <figcaption class="caption">…</figcaption>
+      </figure>
+      <p>…body text wraps to the left of, and then below, the figure…</p>
+      <ul>…</ul>
+    </div>
+  </div>
+  ```
+
+- **Text-sparse card → center** the figure (`.figure`) at 45–60 %. There isn't enough text to wrap, so a float just leaves an L-shaped void; a centered figure at a healthy width reads cleaner. (Worked example, same poster: the architecture figure was *wrapped* — lots of surrounding text — while the Multi-Head figure was *centered* — sparse text. Opposite calls, driven by text volume, not by the figure.)
+
+`data-fig-layout="beside-text"` is the opt-out marker for **either** layout (flex side-by-side *or* float-wrap) — it records "this figure intentionally shares its card with text" and skips the AR gates. It is **not** a generic mute: don't tag a centered, text-less small figure with it. Either enlarge it, wrap it, or (since `polish` is soft) accept the `FIG/TALL-SMALL` WARN.
 
 ### Gate B — Typography orphans
 
@@ -298,7 +325,7 @@ A `<br>` that is a **direct child of a `display: flex` / `inline-flex` element i
 ## Layout-shared pitfalls (column-based templates)
 
 6. **`overflow: hidden` on `.body-grid` clips card shadows.** If last card sits at body-grid bottom, its 30-px shadow is cut and visually merges into the strip below.
-7. **`padding-bottom` on `.column` does NOT push cards down.** Cards stack from top in flex; padding-bottom only reserves space. To shrink, edit card content directly.
+7. **`padding-bottom` on `.column` does NOT push cards down** (cards stack from the top in flex; column padding only reserves space below). But `padding-bottom` on the **last card** *does* raise that column's bottom — `measure` reads the card's border-box bottom — so it's the one continuous, zero-reflow lever for a sub-line alignment residual (see Step 4 "fine-tuning levers"). Don't confuse the two; to shrink a column, edit card content directly.
 8. **Title-block can dominate header height.** Shrinking logos/QR doesn't help if `.title-block` is already the tallest cell.
 9. **Banner can grow from `.banner-stats`.** Big numbers cascade into body-grid shrinkage.
 10. **`box-shadow: 0 2u 6u` extends ~30 px** below the card. Final last-card-bottom must be ≥ 30 px above the strip below.

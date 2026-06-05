@@ -186,6 +186,14 @@ def build_parser() -> argparse.ArgumentParser:
              "text-right recommendation (default 0.70)",
     )
     ppl.add_argument(
+        "--tall-min-ratio", type=float,
+        default=_polish.DEFAULT_TALL_MIN_RATIO,
+        help="tall figures (AR<0.8) BELOW this fraction of card width "
+             "trigger FIG/TALL-SMALL (small + wide side margins); enlarge "
+             "or wrap text. Hard floor, not the ideal (aim 45-60%%) "
+             "(default %(default)s)",
+    )
+    ppl.add_argument(
         "--square-min-ratio", type=float, default=0.55,
         help="square figures (0.8<=AR<=1.3) must occupy >= this "
              "fraction (default 0.55)",

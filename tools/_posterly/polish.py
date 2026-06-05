@@ -39,6 +39,13 @@ from . import render as _render
 # cross, division, plus-minus, footnote markers, degree, percent.
 ORPHAN_GLYPHS = "↑↓↔×÷±§¶†‡*°%"
 
+# A centered tall figure (AR<0.8) rendered below this fraction of card
+# width is too small (wide symmetric side voids) -> FIG/TALL-SMALL. Single
+# source of truth: poster_check.py's CLI default imports this constant, and
+# the defensive getattr fallback below reuses it, so a programmatic caller
+# with a pre-flag Namespace gets the SAME floor as the CLI.
+DEFAULT_TALL_MIN_RATIO = 0.36
+
 
 from .textutil import ascii_safe
 
@@ -341,8 +348,13 @@ def cmd_polish(args: argparse.Namespace) -> int:
     warns: list[str] = []
 
     # ---- Gate A: figure sizing by AR ----
+    # Read defensively: programmatic callers / tests build a Namespace
+    # directly and may predate this flag (mirrors measure.py's fallback
+    # style for newly added args).
+    tall_min = getattr(args, "tall_min_ratio", DEFAULT_TALL_MIN_RATIO)
     for f in data.get("figures", []):
         rw = float(f["rendered_w"])
+        rh = float(f.get("rendered_h", 0.0))
         cw = float(f["card_w"])
         nw = float(f["natural_w"])
         nh = float(f["natural_h"])
@@ -384,9 +396,19 @@ def cmd_polish(args: argparse.Namespace) -> int:
         # gray margin has no such attribute and still warns.
         if str(f.get("fig_layout", "")).strip() == "beside-text":
             continue
-        if cw <= 0 or rw <= 0 or nw <= 0 or nh <= 0:
+        if cw <= 0 or rw <= 0:
             continue
-        ar = nw / nh
+        # AR from natural size when available. An SVG (or any figure that
+        # reported zero natural size yet rendered) falls back to its
+        # RENDERED aspect ratio so the sizing gates still apply -- the
+        # skill recommends converting vector figures to SVG, and a
+        # zero-natural SVG would otherwise slip every AR gate below.
+        if nw > 0 and nh > 0:
+            ar = nw / nh
+        elif rh > 0:
+            ar = rw / rh
+        else:
+            continue
         ratio = rw / cw
         if ar > 1.3 and ratio < args.wide_min_ratio:
             warns.append(
@@ -398,8 +420,18 @@ def cmd_polish(args: argparse.Namespace) -> int:
         elif ar < 0.8 and ratio > args.tall_max_ratio:
             warns.append(
                 f"FIG/TALL: '{ascii_safe(f['src'])}' (AR={ar:.2f}) at "
-                f"{ratio * 100:.0f}% of card width -- tall figures "
-                f"usually pair better with text-right at 45-60%."
+                f"{ratio * 100:.0f}% of card width -- a tall figure this "
+                f"wide gets awkward; shrink to 45-60%, or use a verified "
+                f"float/beside-text wrap layout."
+            )
+        elif ar < 0.8 and ratio < tall_min:
+            warns.append(
+                f"FIG/TALL-SMALL: '{ascii_safe(f['src'])}' (AR={ar:.2f}) at "
+                f"{ratio * 100:.0f}% of card width -- a tall figure this "
+                f"narrow renders small with wide side margins. Enlarge "
+                f"toward 45-60%, or wrap text around it with a verified "
+                f"float/beside-text layout. If the small size is genuinely "
+                f"intended, this is a soft WARN you can accept."
             )
         elif 0.8 <= ar <= 1.3 and ratio < args.square_min_ratio:
             warns.append(

@@ -100,7 +100,7 @@ def _args(html) -> argparse.Namespace:
     return argparse.Namespace(
         html=str(html), canvas=None, settle_ms=200,
         mathjax_timeout_ms=5000, wide_min_ratio=0.65,
-        tall_max_ratio=0.70, square_min_ratio=0.55,
+        tall_max_ratio=0.70, tall_min_ratio=0.36, square_min_ratio=0.55,
         max_space_between_fill=0.05, max_card_trailing=0.10, strict=False,
     )
 

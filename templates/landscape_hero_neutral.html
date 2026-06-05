@@ -466,6 +466,40 @@
   }
   .figure .caption strong { color: var(--accent-deep); }
 
+  /* figure wrapped by text -- for a TALL figure (AR < 0.8) in a TEXT-RICH
+     card: a bigger image with text flowing beside AND below it. The <img>
+     and its surrounding text MUST live in one .fig-wrap; the clearfix makes
+     the card grow to contain the float. Mark the <img> with
+     data-fig-layout="beside-text" so polish's AR gates skip it. Use only
+     when the card has enough text to wrap the figure -- a text-sparse card
+     should CENTER the figure (.figure) instead. */
+  .fig-wrap::after { content: ""; display: table; clear: both; }
+  .ff-fig {
+    float: right;
+    width: 48%; max-width: 58%; min-width: 38%;
+    margin: calc(1 * var(--u)) 0 calc(3 * var(--u)) calc(11 * var(--u));
+    text-align: center;
+  }
+  .ff-fig.left {
+    float: left;
+    margin: calc(1 * var(--u)) calc(11 * var(--u)) calc(3 * var(--u)) 0;
+  }
+  .ff-fig img {
+    display: block;
+    width: 100%;
+    border-radius: calc(4 * var(--u));
+    border: calc(1 * var(--u)) solid var(--border-soft);
+    background: white;
+  }
+  .ff-fig .caption {
+    font-family: var(--font-sans);
+    font-size: calc(10.5 * var(--u));
+    color: var(--text-secondary);
+    margin-top: calc(3 * var(--u));
+    line-height: 1.25;
+    text-align: center;
+  }
+
   /* Result table with .ours row highlighted gold */
   .result-table {
     width: 100%;
