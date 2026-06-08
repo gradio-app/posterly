@@ -28,6 +28,14 @@ dependencies = [
 dev = [
     "pytest>=7",
 ]
+# Real-figure provenance gate (vendored ARIS tools: extract_pdf_figures.py,
+# preprocess_figures.py, asset_check.py). Optional — only needed to pull/check
+# real paper figures; the core HTML / measure / style / preflight gates do not
+# require these.
+figures = [
+    "PyMuPDF>=1.23",
+    "Pillow>=10",
+]
 
 [project.urls]
 Homepage = "https://github.com/Chenruishuo/posterly"
