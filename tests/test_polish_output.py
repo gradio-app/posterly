@@ -282,6 +282,105 @@ def test_tall_small_exempt_when_beside_text(tmp_path, monkeypatch, capsys) -> No
     assert rc == 0
 
 
+def test_contain_letterbox_square_flagged(tmp_path, monkeypatch, capsys) -> None:
+    """A square figure in a FULL-WIDTH box but `object-fit: contain` with a
+    capped height letterboxes to wide symmetric side voids INSIDE the box.
+    The element box reads full width; the gate must judge the picture width
+    (min(box_w, box_h*AR)) and fire FIG/SQUARE."""
+    data = {
+        "figures": [{
+            "src": "images/plot.png", "obj_fit": "contain",
+            "rendered_w": 1000.0, "rendered_h": 300.0, "card_w": 1000.0,  # box 100%
+            "natural_w": 688.0, "natural_h": 688.0,                       # AR 1.0
+        }],
+        "orphans": [], "cols": [],
+    }
+    combined, rc = _run(monkeypatch, tmp_path, capsys, data)
+    assert "FIG/SQUARE" in combined          # picture is min(1000,300)=300 -> 30%
+    assert rc == 0
+
+
+def test_full_width_box_not_flagged_when_filled(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """Control for the letterbox gate: the SAME box without contain (the
+    picture fills the box width) must stay silent -- the fix keys on
+    object-fit, not on every height-capped image."""
+    data = {
+        "figures": [{
+            "src": "images/plot.png",  # no obj_fit => fill, picture == box width
+            "rendered_w": 1000.0, "rendered_h": 300.0, "card_w": 1000.0,
+            "natural_w": 688.0, "natural_h": 688.0,
+        }],
+        "orphans": [], "cols": [],
+    }
+    combined, rc = _run(monkeypatch, tmp_path, capsys, data)
+    assert "FIG/SQUARE" not in combined
+    assert rc == 0
+
+
+def test_beside_text_centred_misuse_flagged(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """beside-text is the opt-out for a genuine side-by-side / float-wrap.
+    A CENTRED, text-less small figure tagged just to mute the warning
+    (symmetric side voids) is the documented misuse -- it must still warn."""
+    data = {
+        "figures": [{
+            "src": "images/arch.png", "fig_layout": "beside-text",
+            "rendered_w": 200.0, "rendered_h": 305.0, "card_w": 1000.0,  # 20%
+            "natural_w": 650.0, "natural_h": 991.0,                      # AR 0.66
+            "off_left": 400.0, "off_right": 400.0,                       # centred
+        }],
+        "orphans": [], "cols": [],
+    }
+    combined, rc = _run(monkeypatch, tmp_path, capsys, data)
+    assert "FIG/TALL-SMALL" in combined
+    assert rc == 0
+
+
+def test_beside_text_hugged_one_side_silent(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """The same figure hugged to one side (one void ~0, text fills the other)
+    IS a real beside-text layout -- the opt-out is honoured, no warning."""
+    data = {
+        "figures": [{
+            "src": "images/arch.png", "fig_layout": "beside-text",
+            "rendered_w": 200.0, "rendered_h": 305.0, "card_w": 1000.0,
+            "natural_w": 650.0, "natural_h": 991.0,
+            "off_left": 5.0, "off_right": 600.0,                         # left-hugged
+        }],
+        "orphans": [], "cols": [],
+    }
+    combined, rc = _run(monkeypatch, tmp_path, capsys, data)
+    assert "FIG/TALL-SMALL" not in combined
+    assert "FIG/TALL" not in combined
+    assert rc == 0
+
+
+def test_beside_text_full_width_contain_letterbox_flagged(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """The two-bug combo: a FULL-WIDTH box (offsets ~0, would read 'hugged')
+    that is object-fit:contain letterboxed to a centred picture, tagged
+    beside-text. The centring test must judge the PICTURE (offsets + half the
+    internal void), not the box, so this can't hide behind the full-width box."""
+    data = {
+        "figures": [{
+            "src": "images/plot.png", "fig_layout": "beside-text",
+            "obj_fit": "contain",
+            "rendered_w": 1000.0, "rendered_h": 300.0, "card_w": 1000.0,  # box 100%
+            "natural_w": 688.0, "natural_h": 688.0,                       # AR 1.0
+            "off_left": 0.0, "off_right": 0.0,                            # box hugs nothing
+        }],
+        "orphans": [], "cols": [],
+    }
+    combined, rc = _run(monkeypatch, tmp_path, capsys, data)
+    assert "FIG/SQUARE" in combined          # picture is 300px -> 30%, centred
+    assert rc == 0
+
+
 def test_tall_small_floor_is_tunable(tmp_path, monkeypatch, capsys) -> None:
     """A centered tall figure rendered at 38% of card width is above the
     0.36 default floor -> silent (this is the real accepted Multi-Head

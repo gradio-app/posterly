@@ -77,7 +77,8 @@ _POLISH_JS = r"""
   const figures = [];
   document.querySelectorAll('[data-measure-role="card"]')
     .forEach((card, ci) => {
-      const cw = card.getBoundingClientRect().width;
+      const cr = card.getBoundingClientRect();
+      const cw = cr.width;
       card.querySelectorAll('img').forEach(img => {
         const r = img.getBoundingClientRect();
         if (r.width < 50) return;  // skip inline icons
@@ -87,6 +88,13 @@ _POLISH_JS = r"""
           src: img.getAttribute('src') || '',
           alt: img.getAttribute('alt') || '',
           fig_layout: img.getAttribute('data-fig-layout') || '',
+          // object-fit + side offsets let the Python gate see picture-level
+          // letterboxing (contain voids INSIDE a full-width box) and tell a
+          // genuine beside-text layout (hugged to one side) from a centred
+          // figure mis-tagged to mute the warning.
+          obj_fit: window.getComputedStyle(img).objectFit || '',
+          off_left: r.left - cr.left,
+          off_right: cr.right - r.right,
           rendered_w: r.width,
           rendered_h: r.height,
           card_w: cw,
@@ -452,19 +460,6 @@ def cmd_polish(args: argparse.Namespace) -> int:
         # the full-bleed hero panel. Skip them.
         if role == "hero":
             continue
-        # Author opt-out for a DELIBERATE image-left/text-right card: a
-        # wide figure that shares its card width with a meaningful text
-        # column is sized below the AR thresholds on purpose. Marking the
-        # <img> with `data-fig-layout="beside-text"` records that intent
-        # in the markup -- so a later edit (human or agent) reads "this is
-        # intentionally beside text" and leaves the layout alone instead
-        # of widening the figure to silence the warning. It skips only the
-        # AR width gates below; the FIG/BROKEN check above still applies
-        # (a blank image is a bug regardless of layout). The gate stays
-        # strict on the accidental case: a lone wide figure shrunk into a
-        # gray margin has no such attribute and still warns.
-        if str(f.get("fig_layout", "")).strip() == "beside-text":
-            continue
         if cw <= 0 or rw <= 0:
             continue
         # AR from natural size when available. An SVG (or any figure that
@@ -478,7 +473,56 @@ def cmd_polish(args: argparse.Namespace) -> int:
             ar = rw / rh
         else:
             continue
-        ratio = rw / cw
+        # Rendered PICTURE width inside the <img> box. `object-fit` decides how
+        # the bitmap fills the element box; only contain/scale-down/none can
+        # leave left+right voids INSIDE a (often full-width) box, which the old
+        # element-box `ratio` missed. Compute the visible picture width so both
+        # the AR gates AND the beside-text centring test below judge what
+        # actually prints, not the element box:
+        #   contain     : scale to fit            -> min(box_w, box_h*AR)
+        #   scale-down  : contain but never upscale past natural -> clamp by nw
+        #   none        : natural size, box-clipped -> min(box_w, nw)
+        #   fill/cover/'': fill the box width      -> box_w
+        obj_fit = str(f.get("obj_fit", "")).strip().lower()
+        if obj_fit in ("contain", "scale-down") and rh > 0 and ar > 0:
+            content_w = min(rw, rh * ar)
+            if obj_fit == "scale-down" and nw > 0:
+                content_w = min(content_w, float(nw))
+        elif obj_fit == "none" and nw > 0:
+            content_w = min(rw, float(nw))
+        else:
+            content_w = rw
+        # Author opt-out for a DELIBERATE image-left/text-right card: a figure
+        # that shares its card with a real side-by-side / float-wrapped text
+        # column is sized below the AR thresholds on purpose. Marking the <img>
+        # `data-fig-layout="beside-text"` records that intent so a later edit
+        # leaves the layout alone instead of widening to silence the warning.
+        # It skips only the AR width gates; the FIG/BROKEN check above still
+        # applies. The documented MISUSE is a CENTRED, text-less small figure
+        # tagged just to mute the warning (SKILL.md: "not a generic mute").
+        # Detect it on the visible PICTURE -- element offsets PLUS half the
+        # internal letterbox void, so a full-width object-fit:contain image
+        # tagged beside-text can't hide a centred picture behind a full-width
+        # box: symmetric side voids => centred => fall through and warn; hugged
+        # to one side => honour. Offsets absent (programmatic/test callers) =>
+        # honour as before. NOTE: this proves the picture sits to one side, not
+        # that text actually fills the other -- a side-hugged text-less figure
+        # is still honoured (accepted residual; the documented misuse is the
+        # centred one).
+        if str(f.get("fig_layout", "")).strip() == "beside-text":
+            ol = f.get("off_left")
+            orr = f.get("off_right")
+            if ol is None or orr is None:
+                continue
+            void = max(0.0, rw - content_w)
+            pic_left = float(ol) + void / 2.0
+            pic_right = float(orr) + void / 2.0
+            centred = (min(pic_left, pic_right) > 0.08 * cw
+                       and abs(pic_left - pic_right) < 0.12 * cw)
+            if not centred:
+                continue
+            # centred-with-side-voids: opt-out misused, do not skip.
+        ratio = content_w / cw
         if ar > 1.3 and ratio < args.wide_min_ratio:
             warns.append(
                 f"FIG/WIDE: '{ascii_safe(f['src'])}' (AR={ar:.2f}) at "
