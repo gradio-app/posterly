@@ -60,6 +60,13 @@ DEFAULT_LOGO_QR_TOL = 0.15
 LOGO_WIDE_QR_BAND = (0.55, 0.85)
 DEFAULT_RIGHTBLOCK_MAX_RATIO = 0.32
 DEFAULT_TITLE_MIN_RATIO = 0.45
+# Title-centring gate (Gate E). The shipped header centres the title with
+# `1fr minmax(50%, auto) 1fr`; a side block (logo / venue badge / QR) heavier
+# than the other still pulls the centred track aside. Soft WARN when the
+# title-block centre is off the header centre by more than this fraction of
+# header width -- a nudge to rebalance the header WHEN logo/QR sizing allows,
+# not a hard rule (sizing + layout win; centring is best-effort).
+DEFAULT_TITLE_OFFSET_MAX = 0.06
 
 
 from .textutil import ascii_safe
@@ -286,13 +293,28 @@ _POLISH_JS = r"""
   // ---- 6) Header logos / QR / title squeeze ----
   // Affiliation + venue logos live in the header, outside any card/hero,
   // so blocks 1-5 never see them: a 404'd logo prints blank silently and
-  // an oversized wordmark silently squeezes the title (the header grid is
-  // `auto 1fr auto`, so the right block STEALS width from the 1fr title
-  // track instead of overflowing). Collect geometry for Gate E. Everything
+  // an oversized wordmark silently crowds the title (the header grid is
+  // `1fr minmax(50%, auto) 1fr`: the title sits in an equal-tracks-centred
+  // column floored at 50%, so instead of silently shrinking the title an
+  // oversized side block is caught by the right-block ratio (right side) or
+  // the title-centre offset (either side -- a fat left venue badge too)).
+  // Collect geometry for Gate E. Everything
   // is scoped UNDER the header role: a footer .qr-block or a card-body
   // .logo-slot is not a header asset and must not drive these gates.
   const header = document.querySelector('[data-measure-role="header"]');
-  const headerW = header ? header.getBoundingClientRect().width : 0;
+  const headerRect = header ? header.getBoundingClientRect() : null;
+  const headerW = headerRect ? headerRect.width : 0;
+  // poster-centre x of the header box, for the title-centring gate below
+  const headerCx = headerRect ? headerRect.left + headerRect.width / 2 : 0;
+  // content-box edges (inside border + padding), for the overflow gate
+  let headerContentLeft = 0, headerContentRight = 0;
+  if (header && headerRect) {
+    const cs = getComputedStyle(header);
+    headerContentLeft = headerRect.left
+      + (parseFloat(cs.borderLeftWidth) || 0) + (parseFloat(cs.paddingLeft) || 0);
+    headerContentRight = headerRect.right
+      - (parseFloat(cs.borderRightWidth) || 0) - (parseFloat(cs.paddingRight) || 0);
+  }
   const logos = [];
   const qrs = [];
   const headerBlocks = [];
@@ -325,19 +347,29 @@ _POLISH_JS = r"""
     });
     // .right-stack is the stacked variant some posters use in place of
     // .right-block -- cover both, or those posters skip the squeeze gate.
-    header.querySelectorAll('.right-block, .right-stack, .title-block')
+    // .venue-badge (the left block) is collected too, only for the overflow
+    // gate (its width never drives the right-block / title-min ratios).
+    header.querySelectorAll('.venue-badge, .right-block, .right-stack, .title-block')
       .forEach(el => {
         const r = el.getBoundingClientRect();
+        let kind = 'right';
+        if (el.classList.contains('title-block')) kind = 'title';
+        else if (el.classList.contains('venue-badge')) kind = 'left';
         headerBlocks.push({
           cls: el.className || '',
-          kind: el.classList.contains('title-block') ? 'title' : 'right',
+          kind: kind,
           w: r.width,
+          cx: r.left + r.width / 2,
+          left: r.left,
+          right: r.right,
         });
       });
   }
 
   return {figures, orphans, cols, cards, flexbr,
-          logos, qrs, header_w: headerW, headerBlocks};
+          logos, qrs, header_w: headerW, header_cx: headerCx,
+          header_content_left: headerContentLeft,
+          header_content_right: headerContentRight, headerBlocks};
 }
 """
 
@@ -634,7 +666,10 @@ def cmd_polish(args: argparse.Namespace) -> int:
     right_max = getattr(
         args, "rightblock_max_ratio", DEFAULT_RIGHTBLOCK_MAX_RATIO)
     title_min = getattr(args, "title_min_ratio", DEFAULT_TITLE_MIN_RATIO)
+    title_offset_max = getattr(
+        args, "title_offset_max", DEFAULT_TITLE_OFFSET_MAX)
     header_w = float(data.get("header_w", 0) or 0)
+    header_cx = float(data.get("header_cx", 0) or 0)
     qr_h = max((float(q.get("rendered_h", 0)) for q in data.get("qrs", [])),
                default=0.0)
     wide_lo, wide_hi = LOGO_WIDE_QR_BAND
@@ -701,18 +736,64 @@ def cmd_polish(args: argparse.Namespace) -> int:
                     f"HEADER/TITLE-SQUEEZED: header right block "
                     f"('{ascii_safe(hb['cls'])}') takes {frac * 100:.0f}% "
                     f"of header width (limit {right_max * 100:.0f}%) -- "
-                    f"the header grid steals that width from the title. "
+                    f"that leaves too little room for the centred title. "
                     f"Shrink or stack the logos/QR; see Logo handling in "
                     f"SKILL.md."
                 )
-            elif hb.get("kind") == "title" and frac < title_min:
-                warns.append(
-                    f"HEADER/TITLE-SQUEEZED: title block squeezed to "
-                    f"{frac * 100:.0f}% of header width (floor "
-                    f"{title_min * 100:.0f}%) -- logos/venue/QR are "
-                    f"crowding the title. Shrink or stack the side "
-                    f"blocks; see Logo handling in SKILL.md."
-                )
+            elif hb.get("kind") == "title":
+                if frac < title_min:
+                    warns.append(
+                        f"HEADER/TITLE-SQUEEZED: title block squeezed to "
+                        f"{frac * 100:.0f}% of header width (floor "
+                        f"{title_min * 100:.0f}%) -- logos/venue/QR are "
+                        f"crowding the title. Shrink or stack the side "
+                        f"blocks; see Logo handling in SKILL.md."
+                    )
+                cx = float(hb.get("cx", 0) or 0)
+                if header_cx > 0 and cx > 0:
+                    off = abs(cx - header_cx) / header_w
+                    if off > title_offset_max:
+                        warns.append(
+                            f"HEADER/TITLE-OFFCENTER: the title sits "
+                            f"{off * 100:.0f}% of header width off the "
+                            f"poster's centre line (limit "
+                            f"{title_offset_max * 100:.0f}%) -- one side "
+                            f"block (logo / venue badge / QR) is heavier "
+                            f"than the other, pushing the centred title "
+                            f"aside. Proper logo/QR sizing and a clean "
+                            f"layout come first; if you can rebalance the "
+                            f"header (shrink, stack, or move the heavier "
+                            f"side, or widen the lighter one) WITHOUT "
+                            f"shrinking the logo/QR below a legible size, "
+                            f"do so -- otherwise it is an accepted "
+                            f"trade-off. See Logo handling in SKILL.md."
+                        )
+
+        # Header overflow -- the case the ratio + offset gates miss: both side
+        # blocks large but balanced keeps the title centred and each side under
+        # its ratio, yet the row overflows the header content box (the centre
+        # track is floored at 50%, so it cannot give way). measure's clipping
+        # gate does not watch the header, so this is the only signal. We test
+        # the BOX edges against the header content box -- not block-vs-title
+        # overlap, since a title-block box floored at 50% is intentionally wide
+        # (text centred inside whitespace) and would overlap a neighbour's box
+        # without the visible text colliding.
+        content_l = float(data.get("header_content_left", 0) or 0)
+        content_r = float(data.get("header_content_right", 0) or 0)
+        if content_r > content_l:
+            for hb in data.get("headerBlocks", []):
+                if (float(hb.get("right", 0)) > content_r + 2.0
+                        or float(hb.get("left", 0)) < content_l - 2.0):
+                    warns.append(
+                        f"HEADER/OVERFLOW: the header block "
+                        f"'{ascii_safe(hb.get('cls', ''))}' spills past the "
+                        f"header edge -- the side blocks (logo / venue badge / "
+                        f"QR) are too wide to sit beside the title at its 50% "
+                        f"floor, so the row overflows instead of shrinking the "
+                        f"title. Shrink or stack the side blocks, or drop one; "
+                        f"see Logo handling in SKILL.md."
+                    )
+                    break
 
     print(f"[polish] {ascii_safe(html_path.name)}")
     print(f"  figures checked     : {len(data.get('figures', []))}")

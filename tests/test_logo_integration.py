@@ -40,9 +40,13 @@ _SVG = ("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' "
         "viewBox='0 0 10 10'><rect width='10' height='10' "
         "fill='%232D5F8B'/></svg>")
 
-# The shipped templates' header skeleton: auto | 1fr | auto grid, flex
-# right-block of logo slots + QR. Width pinned to 1000px so the gate
-# fractions are exact.
+# A header skeleton: flex right-block of logo slots + QR, grid width pinned
+# to 1000px so the gate fractions are exact. The ratio gates read rendered
+# widths, so the exact grid track sizing is immaterial to them (the shipped
+# templates centre the title with `1fr minmax(50%, auto) 1fr`; this fixture
+# keeps a simple auto | 1fr | auto so a short fixture title still fills the
+# title track). Tests that exercise the title-centre offset override the
+# grid inline (see test_title_offcenter_warns).
 _HEAD = """<!DOCTYPE html>
 <html><head><meta charset="utf-8">
 <style>
@@ -153,3 +157,64 @@ def test_healthy_header_is_silent(tmp_path, capsys) -> None:
     assert "header logos        : 2" in combined   # body decoys not counted
     assert "LOGO/" not in combined
     assert "HEADER/TITLE-SQUEEZED" not in combined
+
+
+def _args_off(html) -> argparse.Namespace:
+    a = _args(html)
+    a.title_offset_max = 0.06
+    return a
+
+
+def test_title_offcenter_warns(tmp_path, capsys) -> None:
+    """A header with unequal side tracks (80px left | 1fr | 360px right)
+    centres the title BETWEEN the side blocks, not on the poster: the
+    title-block centre lands at ~360px on a 1000px header (14% left of the
+    500px centre line) -> HEADER/TITLE-OFFCENTER. A soft nudge, not a hard
+    rule -- logo/QR sizing still wins."""
+    html = _HEAD.format(venue=_TEXT_VENUE, slots="", body="", svg=_SVG).replace(
+        "grid-template-columns: auto 1fr auto;",
+        "grid-template-columns: 80px 1fr 360px;")
+    poster = tmp_path / "poster.html"
+    poster.write_text(html, encoding="utf-8")
+
+    rc = _polish.cmd_polish(_args_off(poster))
+    combined = "".join(capsys.readouterr())
+
+    assert rc == 0                                  # soft, warn-only
+    assert "HEADER/TITLE-OFFCENTER" in combined
+
+
+def test_centered_title_no_offcenter(tmp_path, capsys) -> None:
+    """Equal side tracks (250px | 1fr | 250px) keep the title centred on the
+    poster (centre at 500px on a 1000px header) -> no HEADER/TITLE-OFFCENTER."""
+    html = _HEAD.format(venue=_TEXT_VENUE, slots="", body="", svg=_SVG).replace(
+        "grid-template-columns: auto 1fr auto;",
+        "grid-template-columns: 250px 1fr 250px;")
+    poster = tmp_path / "poster.html"
+    poster.write_text(html, encoding="utf-8")
+
+    rc = _polish.cmd_polish(_args_off(poster))
+    combined = "".join(capsys.readouterr())
+
+    assert rc == 0
+    assert "HEADER/TITLE-OFFCENTER" not in combined
+
+
+def test_header_overflow_warns(tmp_path, capsys) -> None:
+    """Both side tracks fat but balanced (280px | minmax(50%,auto) | 280px on
+    a 1000px header): the title stays ~centred (3% offset, under the 6% floor)
+    and each side is 28% (< the 32% right-block limit), yet 280+500+280=1060px
+    overflows the 1000px header by ~60px. Only HEADER/OVERFLOW catches it --
+    the gap the ratio and offset gates leave open."""
+    html = _HEAD.format(venue=_TEXT_VENUE, slots="", body="", svg=_SVG).replace(
+        "grid-template-columns: auto 1fr auto;",
+        "grid-template-columns: 280px minmax(50%, auto) 280px;")
+    poster = tmp_path / "poster.html"
+    poster.write_text(html, encoding="utf-8")
+
+    rc = _polish.cmd_polish(_args_off(poster))
+    combined = "".join(capsys.readouterr())
+
+    assert rc == 0                                  # soft, warn-only
+    assert "HEADER/OVERFLOW" in combined
+    assert "HEADER/TITLE-OFFCENTER" not in combined   # 3% offset < 6% floor

@@ -529,8 +529,8 @@ def test_venue_badge_broken_flagged_but_qr_exempt(
 def test_logo_wide_warns_and_under_threshold_silent(
     tmp_path, monkeypatch, capsys
 ) -> None:
-    """A logo at 30% of header width crowds the title (the auto|1fr|auto
-    header grid steals that width from the title track) -> LOGO/WIDE;
+    """A logo at 30% of header width crowds the title (a side block that
+    wide leaves too little room for the title) -> LOGO/WIDE;
     the same logo at 15% is silent."""
     wide = _logo(rendered_w=300.0)
     combined, _ = _run(

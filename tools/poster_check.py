@@ -236,6 +236,14 @@ def build_parser() -> argparse.ArgumentParser:
              "this fraction of header width (default %(default)s)",
     )
     ppl.add_argument(
+        "--title-offset-max", type=float,
+        default=_polish.DEFAULT_TITLE_OFFSET_MAX,
+        help="warn (HEADER/TITLE-OFFCENTER) if the title block's centre is "
+             "off the header's centre line by more than this fraction of "
+             "header width -- a heavier side block (logo/venue/QR) is "
+             "pulling the centred title aside (default %(default)s)",
+    )
+    ppl.add_argument(
         "--strict", action="store_true",
         help="exit non-zero when any warning is emitted",
     )

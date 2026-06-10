@@ -201,7 +201,7 @@
      ========================================================= */
   .header {
     display: grid;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: 1fr minmax(50%, auto) 1fr;   /* equal side tracks (1fr) -> the title track is centred on the poster, not just between the side blocks; the centre track is floored at 50% so a one-line title still fills it (else a short title measures narrow and trips a false HEADER/TITLE-SQUEEZED). Best-effort: a side block wide enough to clamp its 1fr track can still pull the title off-centre. */
     align-items: center;
     gap: calc(16 * var(--u));
     padding: calc(2 * var(--u)) calc(4 * var(--u)) calc(5 * var(--u));
@@ -209,6 +209,7 @@
   }
 
   .venue-badge {
+    justify-self: start;          /* anchor to the far-left edge so the centre track stays centred */
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     min-width: calc(95 * var(--u));
@@ -276,6 +277,7 @@
   }
 
   .right-block {
+    justify-self: end;            /* keep logo+QR in the far-right corner */
     display: flex; align-items: center;
     gap: calc(10 * var(--u));
   }
