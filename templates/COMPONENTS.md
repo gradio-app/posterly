@@ -213,7 +213,9 @@ Gate name shorthand (DESIGN_FINAL §3–§7):
 ## keybox (`.keybox` > `.kb-item` × N)
 
 - **Purpose**: A compact 2–4-up strip of headline statistics ("3.2× faster", "92% acc"),
-  each a big number over a small caption. The at-a-glance numeric hook.
+  each a big number over a small caption. The at-a-glance numeric hook. Tiles stretch to equal
+  height and **vertically center** their content, so a 1-line tile's number aligns with a
+  2-line neighbour's instead of sitting top-ragged (custom tile grids must do the same).
 - **Allowed variants**: count is set by content (2–4 items); no separate variant classes.
   Each item is `.kb-item > .kb-num + .kb-label`.
 - **Required data attributes**: none.
@@ -231,7 +233,10 @@ Gate name shorthand (DESIGN_FINAL §3–§7):
 
 - **Purpose**: A full-width bottom strip of 3–4 one-line takeaways ("Idea / Method / Result /
   Practical") — the 60-second narrative exit. Portrait templates drop it (final card carries
-  the conclusion instead).
+  the conclusion instead). **Optional — use judgment, don't default it on.** Keep it only when
+  it earns its place as a genuine exit; if the final column cards already land the conclusion,
+  or the strip would just restate the body, **drop the whole block** — a redundant strip is
+  worse than none.
 - **Allowed variants**: title via `.ts-title` (+ `.num` circle), items via `.ts-item` >
   `.ts-key` + `.ts-text`. Item count 3–4. No other variant.
 - **Required data attributes**: `data-measure-role="footer-strip"` (measure positions it between
@@ -245,7 +250,8 @@ Gate name shorthand (DESIGN_FINAL §3–§7):
   paper, (e) global strip stylesheet (tokens).
 - **Anti-patterns**: `linear-gradient` strip background (rule 5 HARD — the de-gradient target);
   using it on a portrait template where it competes for scarce vertical space (use the final
-  conclusion card instead); inventing a takeaway not supported by the poster body (Phase 6).
+  conclusion card instead); inventing a takeaway not supported by the poster body (Phase 6);
+  keeping it on by default when it merely restates the body — drop the whole block instead.
 
 ## qr-block (`.qr-block` > img + `.qr-label`)
 
@@ -320,7 +326,10 @@ Gate name shorthand (DESIGN_FINAL §3–§7):
 - **Allowed fix operations**: (a), (c) edit footer text, (e) global footer stylesheet (tokens).
 - **Anti-patterns**: inline `style="color:var(--accent-deep)"` on the method name (the posterly
   original did this — the fork uses `.text-accent-deep` / a class; rule 2 forbids inline style);
-  a remote contact-tracking pixel or remote asset in the footer (verify-final).
+  a remote contact-tracking pixel or remote asset in the footer (verify-final); a long raw repo
+  URL / email that overflows or ragged-wraps a **narrow portrait** footer — let the QR carry the
+  link and print a short `github.com/org/repo` path (the row already `flex-wrap`s and `.repo`
+  breaks long tokens, but a short string is the clean fix). See SKILL Layout pitfall — footer fit.
 
 ---
 

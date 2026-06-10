@@ -661,6 +661,10 @@
     border-top: calc(2 * var(--u)) solid var(--accent);
     padding: calc(3 * var(--u));
     text-align: center;
+    /* The grid stretches every tile to the tallest one; center the content
+       vertically so a 1-line tile's number aligns with a 2-line neighbour's
+       instead of top-ragged (SKILL Layout pitfall — stat-tile alignment). */
+    display: flex; flex-direction: column; justify-content: center;
     border-radius: 0 0 calc(3 * var(--u)) calc(3 * var(--u));
   }
   .kb-item .kb-num {
@@ -728,14 +732,18 @@
   /* Footer */
   .footer {
     grid-column: 1 / -1;
-    display: flex; justify-content: space-between; align-items: center;
+    display: flex; justify-content: space-between; align-items: baseline;
+    /* When the two blocks can't sit side by side they stack (wrap) instead of
+       overflowing; row-gap keeps the stacked blocks legible. */
+    flex-wrap: wrap; gap: calc(2 * var(--u)) calc(10 * var(--u));
     padding-top: calc(8 * var(--u));
     border-top: calc(1 * var(--u)) solid var(--border-soft);
     font-family: var(--font-sans);
     font-size: var(--fs-5);
     color: var(--text-muted);
   }
-  .footer .repo { color: var(--accent); font-weight: 600; }
+  /* Long repo URL / email breaks mid-token rather than overflowing the edge. */
+  .footer .repo { color: var(--accent); font-weight: 600; overflow-wrap: anywhere; }
   /* Footer method name (replaces an inline color style). */
   .footer .method-name { color: var(--accent-deep); }
 
