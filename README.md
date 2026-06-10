@@ -1,14 +1,17 @@
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/posterly-logo-dark.png">
+    <img src="docs/posterly-logo.png" alt="posterly" width="460">
+  </picture>
+</h1>
+
+<p align="center">Build academic conference posters as a single HTML/CSS file,<br>rendered to print-ready PDF via headless Chromium.</p>
+
 <p align="center">
-  <img src="docs/posterly-logo.png" alt="posterly — a paper, an arrow, and the word posterly with a print registration mark as the o" width="440">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL_v3-blue.svg" alt="License: AGPL v3"></a>
+  <img src="https://img.shields.io/badge/python-3.10+-blue.svg" alt="Python: 3.10+">
+  <img src="https://img.shields.io/badge/coding_agent-skill-7B2CBF.svg" alt="Agent skill">
 </p>
-
-# posterly
-
-> Build academic conference posters as a single HTML/CSS file, rendered to print-ready PDF via headless Chromium.
-
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
-![Python: 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)
-![Agent skill](https://img.shields.io/badge/coding_agent-skill-7B2CBF.svg)
 
 **This is a coding-agent skill, not a hosted service.** Clone, install, and either invoke `/posterly` from your agent or call the CLIs directly. There is no cloud, no signup, no telemetry.
 
