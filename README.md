@@ -1,11 +1,11 @@
 <h1 align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/posterly-logo-dark.png">
-    <img src="docs/posterly-logo.png" alt="posterly" width="460">
+    <img src="docs/posterly-logo-light.png" alt="posterly" width="460">
   </picture>
 </h1>
 
-<p align="center">Build academic conference posters as a single HTML/CSS file,<br>rendered to print-ready PDF via headless Chromium.</p>
+<p align="center"><b>Build academic conference posters as a single HTML/CSS file,<br>rendered to print-ready PDF via headless Chromium.</b></p>
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL_v3-blue.svg" alt="License: AGPL v3"></a>
