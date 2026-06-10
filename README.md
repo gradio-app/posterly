@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/posterly-logo.png" alt="posterly — a paper, an arrow, and the word posterly with a print registration mark as the o" width="440">
+</p>
+
 # posterly
 
 > Build academic conference posters as a single HTML/CSS file, rendered to print-ready PDF via headless Chromium.
