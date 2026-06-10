@@ -183,6 +183,140 @@ def test_hero_figure_skips_card_ar_gates(tmp_path, monkeypatch, capsys) -> None:
     assert rc == 0
 
 
+# A 2:1 panorama (natural 2048x1024) dropped into a wide-SHORT hero stage.
+# Models InfinityGAN: stage 1375x252 (5.46:1), object-fit:contain height-caps
+# the image to 239 tall -> 478 wide -> fills only 35% of the stage width,
+# centered with ~448px symmetric side voids.
+_HERO_LETTERBOX = {
+    "src": "images/teaser.png", "role": "hero", "obj_fit": "contain",
+    "rendered_w": 479.0, "rendered_h": 239.0,
+    "card_w": 1427.0, "stage_w": 1375.0, "stage_h": 252.0,
+    "off_left": 448.0, "off_right": 448.0,
+    "natural_w": 2048.0, "natural_h": 1024.0,
+}
+
+
+def test_hero_stage_letterbox_fires(tmp_path, monkeypatch, capsys) -> None:
+    """A narrow-aspect hero image stranded in a wide-short stage with big
+    symmetric side voids surfaces HERO/STAGE-LETTERBOX (the old code blanket-
+    skipped every hero image, so this never fired)."""
+    combined, rc = _run(
+        monkeypatch, tmp_path, capsys,
+        {"figures": [_HERO_LETTERBOX], "orphans": [], "cols": []},
+    )
+    assert "HERO/STAGE-LETTERBOX" in combined
+    assert "teaser.png" in combined
+    assert rc == 0
+
+
+def test_hero_full_bleed_not_letterboxed(tmp_path, monkeypatch, capsys) -> None:
+    """A genuine full-bleed hero (image fills the stage width, no side voids)
+    must NOT trip HERO/STAGE-LETTERBOX -- the gate replaces the blanket skip
+    without flagging the legitimate case."""
+    full_bleed = {
+        "src": "images/cover.jpg", "role": "hero", "obj_fit": "cover",
+        "rendered_w": 1375.0, "rendered_h": 600.0,
+        "card_w": 1427.0, "stage_w": 1375.0, "stage_h": 600.0,
+        "off_left": 0.0, "off_right": 0.0,
+        "natural_w": 2000.0, "natural_h": 900.0,
+    }
+    combined, rc = _run(
+        monkeypatch, tmp_path, capsys,
+        {"figures": [full_bleed], "orphans": [], "cols": []},
+    )
+    assert "HERO/STAGE-LETTERBOX" not in combined
+    assert rc == 0
+
+
+def test_hero_fixed_box_contain_letterbox_fires(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """A hero img sized width/height:100% with object-fit:contain: the ELEMENT
+    box fills the stage (off_left=off_right=0) but the 2:1 picture letterboxes
+    INSIDE it. The void must be read on the picture (content_w), not the box --
+    otherwise this slips silently (regression for the symmetric-void fix)."""
+    fixed_contain = {
+        "src": "images/panorama.png", "role": "hero", "obj_fit": "contain",
+        "rendered_w": 1375.0, "rendered_h": 252.0,    # element box == stage
+        "card_w": 1427.0, "stage_w": 1375.0, "stage_h": 252.0,
+        "off_left": 0.0, "off_right": 0.0,            # box fills the stage
+        "natural_w": 2048.0, "natural_h": 1024.0,     # 2:1 -> content_w ~504
+    }
+    combined, rc = _run(
+        monkeypatch, tmp_path, capsys,
+        {"figures": [fixed_contain], "orphans": [], "cols": []},
+    )
+    assert "HERO/STAGE-LETTERBOX" in combined
+    assert rc == 0
+
+
+def test_beside_text_void_fires(tmp_path, monkeypatch, capsys) -> None:
+    """A figure floated beside text whose text stops well short of the figure
+    bottom leaves an L-shaped void -> FIG/BESIDE-TEXT-VOID."""
+    data = {
+        "figures": [], "orphans": [], "cols": [],
+        "besideVoids": [
+            {"src": "images/sl_loss.png", "fig_bottom": 500.0, "fig_h": 400.0,
+             "text_bottom": 300.0, "line_h": 20.0},   # 50% void
+        ],
+    }
+    combined, rc = _run(monkeypatch, tmp_path, capsys, data)
+    assert "FIG/BESIDE-TEXT-VOID" in combined
+    assert "sl_loss.png" in combined
+    assert rc == 0
+
+
+def test_beside_text_void_silent_when_text_fills(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """When the wrapping text reaches the figure bottom (the legitimate text-
+    rich wrap), no void warning fires."""
+    data = {
+        "figures": [], "orphans": [], "cols": [],
+        "besideVoids": [
+            {"src": "images/ok.svg", "fig_bottom": 500.0, "fig_h": 400.0,
+             "text_bottom": 492.0, "line_h": 20.0},   # 2% short -> fine
+        ],
+    }
+    combined, rc = _run(monkeypatch, tmp_path, capsys, data)
+    assert "FIG/BESIDE-TEXT-VOID" not in combined
+    assert rc == 0
+
+
+def test_beside_text_void_sub_line_shortfall_silent(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """The 1.5-line guard: a ratio over the threshold but a deficit under one
+    and a half lines (a tiny figure) is NOT flagged -- avoids noise on short
+    floats where a fractional-line shortfall is invisible."""
+    data = {
+        "figures": [], "orphans": [], "cols": [],
+        "besideVoids": [
+            {"src": "images/tiny.svg", "fig_bottom": 40.0, "fig_h": 40.0,
+             "text_bottom": 25.0, "line_h": 20.0},   # ratio .375 but def 15<30
+        ],
+    }
+    combined, rc = _run(monkeypatch, tmp_path, capsys, data)
+    assert "FIG/BESIDE-TEXT-VOID" not in combined
+    assert rc == 0
+
+
+def test_beside_text_void_no_text_fires(tmp_path, monkeypatch, capsys) -> None:
+    """A beside-text float with NO wrapping text at all (text_bottom None) is
+    the worst case -- a lone picture tagged beside-text -> warn."""
+    data = {
+        "figures": [], "orphans": [], "cols": [],
+        "besideVoids": [
+            {"src": "images/lonely.png", "fig_bottom": 500.0, "fig_h": 400.0,
+             "text_bottom": None, "line_h": 0.0},
+        ],
+    }
+    combined, rc = _run(monkeypatch, tmp_path, capsys, data)
+    assert "FIG/BESIDE-TEXT-VOID" in combined
+    assert "lonely.png" in combined
+    assert rc == 0
+
+
 def test_polish_unicode_path_stays_ascii(tmp_path, monkeypatch, capsys) -> None:
     """Round-13: polish's OWN path echoes -- the missing-file error and
     the `[polish] <name>` header -- must stay ASCII under a Unicode dir."""

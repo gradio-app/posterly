@@ -46,6 +46,26 @@ ORPHAN_GLYPHS = "↑↓↔×÷±§¶†‡*°%"
 # with a pre-flag Namespace gets the SAME floor as the CLI.
 DEFAULT_TALL_MIN_RATIO = 0.36
 
+# Hero-stage letterbox (Gate A, hero branch). A hero figure is NOT exempt
+# from sizing the way the old blanket `role=="hero": continue` assumed: a
+# narrow-aspect image dropped into a wide-but-SHORT `.hero-stage` is height-
+# constrained and leaves big symmetric side voids (e.g. a 2:1 panorama in a
+# 5.5:1 stage fills ~35% of the width). HERO/STAGE-LETTERBOX fires when the
+# picture fills < FILL of the stage width WHILE the stage is AR_MULT× wider
+# (relative to the image AR) than the image needs, with symmetric side voids.
+# A genuine full-bleed hero (image AR ~= stage AR, picture fills the width)
+# never trips it.
+DEFAULT_HERO_LETTERBOX_FILL = 0.55
+DEFAULT_HERO_LETTERBOX_AR_MULT = 1.6
+
+# Beside-text float void (Gate A2). A figure floated beside text
+# (`data-fig-layout="beside-text"` inside a `.fig-wrap`) whose wrapping text
+# stops more than this fraction of the figure's height short of the figure
+# bottom leaves an L-shaped void below the text -> FIG/BESIDE-TEXT-VOID. The
+# beside-text AR opt-out proves the figure is side-hugged but never checked
+# the text actually fills the other side; this closes that residual.
+DEFAULT_BESIDE_VOID_RATIO = 0.30
+
 # Header-logo gates (Gate E). Same single-source pattern as above: the
 # CLI defaults in poster_check.py import these, and the getattr fallbacks
 # in cmd_polish reuse them. Calibrated against the template size classes
@@ -121,15 +141,28 @@ _POLISH_JS = r"""
       hero.querySelectorAll('img').forEach(img => {
         const r = img.getBoundingClientRect();
         if (r.width < 50) return;  // skip venue badges / inline icons
+        // The "stage" is the immediate figure box the image is letterboxed
+        // INSIDE (`.hero-stage` in the hero template), falling back to the
+        // hero panel itself. The wide-short-stage / narrow-image side void
+        // is measured against THIS box and the image's offsets within it --
+        // not the whole hero -- so HERO/STAGE-LETTERBOX can replace the old
+        // blanket hero skip without over-reaching.
+        const stage = img.closest('.hero-stage') || hero;
+        const sr = stage.getBoundingClientRect();
         figures.push({
           card_index: -1,
           role: 'hero',
           src: img.getAttribute('src') || '',
           alt: img.getAttribute('alt') || '',
           fig_layout: img.getAttribute('data-fig-layout') || '',
+          obj_fit: window.getComputedStyle(img).objectFit || '',
+          off_left: r.left - sr.left,
+          off_right: sr.right - r.right,
           rendered_w: r.width,
           rendered_h: r.height,
           card_w: hw,
+          stage_w: sr.width,
+          stage_h: sr.height,
           natural_w: img.naturalWidth || 0,
           natural_h: img.naturalHeight || 0,
         });
@@ -366,7 +399,65 @@ _POLISH_JS = r"""
       });
   }
 
-  return {figures, orphans, cols, cards, flexbr,
+  // ---- 7) Beside-text float void ----
+  // A figure floated beside text (`.fig-wrap` > `figure.ff-fig` with the
+  // img tagged data-fig-layout="beside-text") whose wrapping text is SHORT
+  // leaves an L-shaped void: the text stops beside the figure's upper half
+  // and below it (still beside the figure's lower half) is blank. Measure
+  // how far the wrapping text falls short of the figure bottom. Text is the
+  // fig-wrap's own text EXCLUDING the figure's caption (fig.contains). If
+  // the text genuinely flows past the figure bottom, text_bottom >=
+  // fig_bottom and the Python side reads a non-positive deficit -> no warn.
+  const besideVoids = [];
+  document.querySelectorAll('.fig-wrap').forEach((wrap, wi) => {
+    const fig = wrap.querySelector('figure.ff-fig, .ff-fig');
+    if (!fig) return;
+    const img = fig.querySelector('img[data-fig-layout="beside-text"]');
+    if (!img) return;  // only the marked float layout, not a generic wrap
+    const fr = fig.getBoundingClientRect();
+    if (fr.height <= 0) return;
+    // Only count line rects that are genuinely BESIDE the figure: they must
+    // (a) overlap the figure vertically AND (b) sit clear of it horizontally
+    // (entirely to one side). A line that wraps BELOW the figure runs full
+    // width -- it overlaps the figure horizontally and/or starts past its
+    // bottom -- so it is excluded, and trailing below-figure text can't mask
+    // a side void (the deficit reflects only how far the SIDE text reaches).
+    let textBottom = -Infinity;
+    const heights = [];
+    const walker = document.createTreeWalker(wrap, NodeFilter.SHOW_TEXT);
+    for (let tn = walker.nextNode(); tn; tn = walker.nextNode()) {
+      if (!tn.nodeValue || !tn.nodeValue.trim()) continue;
+      if (fig.contains(tn)) continue;  // skip the figure's own caption text
+      const rng = document.createRange();
+      rng.selectNodeContents(tn);
+      const rects = rng.getClientRects();
+      for (let i = 0; i < rects.length; i++) {
+        const rc = rects[i];
+        if (rc.height <= 0) continue;
+        const overlapsV = (rc.top < fr.bottom - 1) && (rc.bottom > fr.top + 1);
+        const clearsH = (rc.left >= fr.right - 1) || (rc.right <= fr.left + 1);
+        if (!overlapsV || !clearsH) continue;  // below / behind the figure
+        if (rc.bottom > textBottom) textBottom = rc.bottom;
+        heights.push(rc.height);
+      }
+    }
+    // Median line height -- robust to a single tall inline element (MathJax,
+    // an enlarged span) that a max() would let inflate and wrongly silence a
+    // real void via the 1.5-line guard on the Python side.
+    heights.sort((a, b) => a - b);
+    const lineH = heights.length
+      ? heights[Math.floor((heights.length - 1) / 2)] : 0;
+    besideVoids.push({
+      wrap_index: wi,
+      src: img.getAttribute('src') || '',
+      fig_bottom: fr.bottom,
+      fig_h: fr.height,
+      text_bottom: (textBottom === -Infinity) ? null : textBottom,
+      line_h: lineH,
+    });
+  });
+
+  return {figures, orphans, cols, cards, flexbr, besideVoids,
           logos, qrs, header_w: headerW, header_cx: headerCx,
           header_content_left: headerContentLeft,
           header_content_right: headerContentRight, headerBlocks};
@@ -461,6 +552,10 @@ def cmd_polish(args: argparse.Namespace) -> int:
     # directly and may predate this flag (mirrors measure.py's fallback
     # style for newly added args).
     tall_min = getattr(args, "tall_min_ratio", DEFAULT_TALL_MIN_RATIO)
+    hero_fill = getattr(
+        args, "hero_letterbox_fill", DEFAULT_HERO_LETTERBOX_FILL)
+    hero_ar_mult = getattr(
+        args, "hero_letterbox_ar_mult", DEFAULT_HERO_LETTERBOX_AR_MULT)
     for f in data.get("figures", []):
         rw = float(f["rendered_w"])
         rh = float(f.get("rendered_h", 0.0))
@@ -487,11 +582,11 @@ def cmd_polish(args: argparse.Namespace) -> int:
                 "an unreachable remote URL); it will be blank in print."
             )
             continue
-        # Hero figures get the broken-image check above, but the AR sizing
-        # gates below are framed as "% of card width" and don't apply to
-        # the full-bleed hero panel. Skip them.
-        if role == "hero":
-            continue
+        # Hero figures: the %-of-card-width AR gates below don't apply (a
+        # hero panel has no card budget), but a hero image is NOT
+        # automatically fine -- the HERO/STAGE-LETTERBOX check after
+        # content_w is computed catches a narrow picture stranded in a
+        # wide-short stage. (Old code blanket-skipped role=="hero" here.)
         if cw <= 0 or rw <= 0:
             continue
         # AR from natural size when available. An SVG (or any figure that
@@ -524,6 +619,43 @@ def cmd_polish(args: argparse.Namespace) -> int:
             content_w = min(rw, float(nw))
         else:
             content_w = rw
+        # Hero branch: stop blanket-exempting hero images. The %-of-card AR
+        # gates don't fit a hero panel, but a narrow-aspect picture dropped
+        # into a wide-but-SHORT `.hero-stage` is height-constrained and
+        # leaves big symmetric side voids. Flag exactly that shape.
+        if role == "hero":
+            sw = float(f.get("stage_w", 0) or 0)
+            sh = float(f.get("stage_h", 0) or 0)
+            ol = f.get("off_left")
+            orr = f.get("off_right")
+            if sw > 0 and sh > 0 and ol is not None and orr is not None:
+                fill = content_w / sw
+                stage_ar = sw / sh
+                ar_mult = (stage_ar / ar) if ar > 0 else 0.0
+                # Side void = the img's offset within the stage PLUS half the
+                # internal object-fit letterbox, so a hero img sized
+                # width/height:100% with object-fit:contain (element box fills
+                # the stage, picture letterboxed inside) is judged on the
+                # visible PICTURE, not the element box. Mirrors the card
+                # beside-text centring test.
+                void = max(0.0, rw - content_w)
+                pic_left = float(ol) + void / 2.0
+                pic_right = float(orr) + void / 2.0
+                symmetric = (min(pic_left, pic_right) > 0.15 * sw
+                             and abs(pic_left - pic_right) < 0.12 * sw)
+                if (fill < hero_fill and ar_mult > hero_ar_mult
+                        and symmetric):
+                    warns.append(
+                        f"HERO/STAGE-LETTERBOX: '{ascii_safe(f['src'])}' "
+                        f"(AR={ar:.2f}) fills only {fill * 100:.0f}% of its "
+                        f"hero-stage width -- the stage is {stage_ar:.1f}:1, "
+                        f"much wider than the image, so a height-constrained "
+                        f"picture leaves big symmetric side voids. Give the "
+                        f"figure real vertical room (move a secondary diagram "
+                        f"out of the hero into a card), or constrain the "
+                        f"stage width toward the image's aspect ratio."
+                    )
+            continue
         # Author opt-out for a DELIBERATE image-left/text-right card: a figure
         # that shares its card with a real side-by-side / float-wrapped text
         # column is sized below the AR thresholds on purpose. Marking the <img>
@@ -583,6 +715,46 @@ def cmd_polish(args: argparse.Namespace) -> int:
                 f"FIG/SQUARE: '{ascii_safe(f['src'])}' (AR={ar:.2f}) at "
                 f"{ratio * 100:.0f}% of card width -- square figures "
                 f"sit better at {args.square_min_ratio * 100:.0f}-75%."
+            )
+
+    # ---- Gate A2: beside-text float void ----
+    # A figure floated beside text whose wrapping text stops short of the
+    # figure bottom leaves an L-shaped void below the text. The beside-text
+    # AR opt-out above only proved the figure is side-hugged (not a centred
+    # mis-tag); it never checked the text fills the other side. This closes
+    # that residual. deficit = how far the text falls short of the figure
+    # bottom; text flowing PAST the figure yields a non-positive deficit
+    # (no warn). The 1.5-line guard avoids flagging a sub-line shortfall.
+    beside_void = getattr(
+        args, "beside_void_ratio", DEFAULT_BESIDE_VOID_RATIO)
+    for bv in data.get("besideVoids", []):
+        fig_h = float(bv.get("fig_h", 0) or 0)
+        if fig_h <= 0:
+            continue
+        tb = bv.get("text_bottom")
+        if tb is None:
+            warns.append(
+                f"FIG/BESIDE-TEXT-VOID: '{ascii_safe(bv.get('src', ''))}' "
+                f"floats beside text but has NO wrapping text beside it -- a "
+                f"text-less float just leaves an L-shaped void. Center the "
+                f"figure (.figure) with text full-width below instead."
+            )
+            continue
+        deficit = float(bv["fig_bottom"]) - float(tb)
+        line_h = float(bv.get("line_h", 0) or 0)
+        ratio = deficit / fig_h
+        if ratio > beside_void and deficit > 1.5 * max(line_h, 1.0):
+            warns.append(
+                f"FIG/BESIDE-TEXT-VOID: '{ascii_safe(bv.get('src', ''))}' -- "
+                f"the wrapping text stops {ratio * 100:.0f}% of the figure's "
+                f"height short of its bottom, leaving an L-shaped void beside "
+                f"the figure's lower half. Best fix: lengthen the text with "
+                f"paper-sourced detail until it fills the figure height, or "
+                f"shrink the figure to the text height. Centering (.figure, "
+                f"text full-width below) only helps a WIDE figure (aspect > "
+                f"~1.3) -- centering a square or tall figure at a width that "
+                f"fits the column just trades the L-void for symmetric side "
+                f"voids and shrinks the figure."
             )
 
     # ---- Gate B: typography orphans ----
@@ -800,6 +972,7 @@ def cmd_polish(args: argparse.Namespace) -> int:
     print(f"  stat-like elements  : {len(data.get('orphans', []))}")
     print(f"  space-between cols  : {len(data.get('cols', []))}")
     print(f"  cards checked       : {len(data.get('cards', []))}")
+    print(f"  beside-text floats  : {len(data.get('besideVoids', []))}")
     print(f"  flex/<br> parents   : {len(data.get('flexbr', []))}")
     print(f"  header logos        : {len(data.get('logos', []))}")
     print(f"  warnings            : {len(warns)}")

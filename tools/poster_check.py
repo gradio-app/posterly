@@ -199,6 +199,31 @@ def build_parser() -> argparse.ArgumentParser:
              "fraction (default 0.55)",
     )
     ppl.add_argument(
+        "--hero-letterbox-fill", type=float,
+        default=_polish.DEFAULT_HERO_LETTERBOX_FILL,
+        help="HERO/STAGE-LETTERBOX: a hero figure filling BELOW this "
+             "fraction of its hero-stage width (while the stage is much "
+             "wider than the image AR, see --hero-letterbox-ar-mult) leaves "
+             "big symmetric side voids (default %(default)s)",
+    )
+    ppl.add_argument(
+        "--hero-letterbox-ar-mult", type=float,
+        default=_polish.DEFAULT_HERO_LETTERBOX_AR_MULT,
+        help="HERO/STAGE-LETTERBOX trips only when stage_AR / image_AR "
+             "exceeds this -- i.e. the stage is this many times wider "
+             "(relative to the image) than the image needs (default "
+             "%(default)s); guards against flagging a genuine full-bleed "
+             "hero where image AR ~= stage AR",
+    )
+    ppl.add_argument(
+        "--beside-void-ratio", type=float,
+        default=_polish.DEFAULT_BESIDE_VOID_RATIO,
+        help="FIG/BESIDE-TEXT-VOID: a figure floated beside text whose "
+             "text stops more than this fraction of the figure height "
+             "short of its bottom leaves an L-shaped void (default "
+             "%(default)s)",
+    )
+    ppl.add_argument(
         "--max-space-between-fill", type=float, default=0.05,
         help="warn if a space-between column has an inter-card gap "
              "exceeding this fraction of column height (default 0.05)",

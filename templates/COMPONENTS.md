@@ -70,10 +70,17 @@ Gate name shorthand (DESIGN_FINAL §3–§7):
 
 - **Purpose**: A `card` whose header is a numbered section title — the standard reading order
   cue ("1 Motivation", "2 Method"…). Not a separate element: it is `.card` containing
-  `<div class="section-title"><span class="num">N</span> Title</div>`.
+  `<div class="section-title"><span class="num">N</span><span class="st-text">Title</span></div>`.
+  **The title text — and any ★ marker — MUST sit inside the `.st-text` span.** That is what lets
+  a long heading wrap as natural text with a hanging indent. Without the wrapper the round number
+  badge gets stranded on its own line and the title is pushed below it, because a flex/`:has`
+  fallback then floats the badge (graceful, but not the intended centred form). Do not insert a
+  manual `<br>` to force a break; let `.st-text` wrap on its own.
 - **Allowed variants**: inherits all `card` variants. The `.section-title` may carry a small
-  inline gold "★ KEY" marker **only** via the predefined `.keyword-gold` class (never an inline
-  `style="color:…"` — the posterly originals did this; the ARIS fork replaces it with the class).
+  inline gold "★ KEY" / "★ Headline" marker as the **last child of `.st-text`**, glued to the
+  preceding word with `&nbsp;` (e.g. `…Result&nbsp;<span class="key-mark">&#9733; KEY</span>`) so
+  it can never widow onto its own line. Use the template's gold marker class (`.key-mark` in
+  landscape_4col, `.tag-key` in portrait) — never an inline `style="color:…"`.
 - **Required data attributes**: same as `card` (`data-measure-role="card"`). The number itself
   carries no data attribute.
 - **Token usage**: `.section-title` → `--accent-deep` (text), `--font-sans`; `.num` →

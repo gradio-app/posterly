@@ -278,7 +278,9 @@ python <skill>/tools/poster_check.py polish poster.html
 This is a **soft** gate (exits 0 by default; pass `--strict` to fail on warnings). It surfaces failure modes that the hard alignment gate cannot see — figure sizing relative to its aspect ratio, typography orphans, column whitespace pretending to be balance, `<br>`-in-flex collapse, and header-logo problems (broken / oversized / QR-height mismatch / title squeeze). See **§Visual polish gates** below for the rule for each WARN class and the correct fix. Fix every WARN unless you explicitly judge it acceptable for this poster.
 
 Other polish:
-- **`text-wrap: balance`** on banner/takeaways prose — fixes ragged-right and single-word-orphan lines.
+- **`text-wrap`** — match the property to the text:
+  - **`balance`** only on **short, centered** display text (titles, captions, one-line takeaways ≤ 2 lines); it evens the ragged edge.
+  - **Never `balance` on multi-sentence prose** (banner TL;DR, long takeaways), and especially not with `text-align: left`. Near a 2↔3-line threshold, balance shortens and hyphenates the **first** line to "even" the block, producing a crammed-left / big-gap-right banner. For prose that should fill its box, use **`text-wrap: pretty`** (fills each line, only protects the last-line orphan) or plain natural wrap.
 
 **Step 6.5 — Final review (strongly recommended)**: send the rendered PDF (or its high-res PNG slices) AND the HTML to the same kind of reviewer used in Step 1.5 (external LLM if available, self-audit otherwise). Same evidence-pack rule. The reviewer prompt focuses on three things distinct from Step 1.5:
 1. **Visual rhetoric**: does the poster's narrative carry? Are the headline numbers prominent? Is the framework banner readable from 2 m?
@@ -321,7 +323,9 @@ A figure too small for its column is more wasteful than one too big. Pick width 
 
 Thresholds are tunable via `--wide-min-ratio` / `--square-min-ratio` / `--tall-max-ratio` / `--tall-min-ratio`. The defaults bracket the documented "aim for" range, so a figure inside it passes cleanly. `--tall-min-ratio` (default **0.36**) is a *hard floor, not the ideal* — a centered tall figure rendering below it (≈ a 64%+ symmetric side void) is the recurring "figure too small" bug; the ideal is still 45–60%. The floor is measured as **rendered width ÷ card width**, which runs a few points below the CSS `width:%` (card padding), so calibrate against the rendered figure, not the style value. Because `polish` is soft, a borderline figure you've consciously accepted can keep its WARN; raise the floor and run `--strict` if you want it enforced.
 
-A figure whose `<img>` fails to load (missing file, 404, or unreachable remote URL) reports zero natural size and warns as **FIG/BROKEN** — it will be blank in print. An SVG legitimately reports zero intrinsic size, so it's exempt from FIG/BROKEN — but the AR sizing gates **still apply to it**, computed from its **rendered** aspect ratio (so a too-small/too-wide SVG figure is not silently exempt). The probe covers both card and hero-panel `<img>` (the hero centerpiece is the worst image to silently lose); the AR sizing gates stay card-only. One known gap: an SVG served from an extensionless URL still slips the FIG/BROKEN exemption heuristic (gets wrongly flagged broken).
+A figure whose `<img>` fails to load (missing file, 404, or unreachable remote URL) reports zero natural size and warns as **FIG/BROKEN** — it will be blank in print. An SVG legitimately reports zero intrinsic size, so it's exempt from FIG/BROKEN — but the AR sizing gates **still apply to it**, computed from its **rendered** aspect ratio (so a too-small/too-wide SVG figure is not silently exempt). The probe covers both card and hero-panel `<img>` (the hero centerpiece is the worst image to silently lose). One known gap: an SVG served from an extensionless URL still slips the FIG/BROKEN exemption heuristic (gets wrongly flagged broken).
+
+**Hero figures aren't exempt from sizing — HERO/STAGE-LETTERBOX.** The card-width AR gates above (FIG/WIDE etc.) don't apply to a hero panel, but a hero figure can still waste its space: a narrow-aspect picture dropped into a wide-but-**short** `.hero-stage` is height-constrained and strands itself with big symmetric side voids (a 2:1 panorama height-capped in a 5:1 stage fills ~35 % of the width). **HERO/STAGE-LETTERBOX** fires when the picture fills < 55 % of the stage width *while* the stage is much wider (relative to the image AR) than the image needs, with symmetric voids. The usual root cause is cramming a second large figure into the hero so the main figure loses vertical budget — move the secondary diagram into a card / the supporting column, or constrain the stage width toward the image's aspect ratio. A genuine full-bleed hero (image AR ≈ stage AR, picture fills the width) never trips it.
 
 Concrete bad case (prior session): `co-consideration.png` (AR ≈ 1.41) shipped at 41 % column width. The whitespace beside it conveyed nothing and the figure was unreadable from 2 m. Fix: 66 % width, no text-right.
 
@@ -340,7 +344,7 @@ This skips the AR width gates (FIG/WIDE / FIG/SQUARE / FIG/TALL / FIG/TALL-SMALL
 
   ```html
   <div class="card" data-measure-role="card">
-    <div class="section-title">…</div>
+    <div class="section-title"><span class="num">N</span><span class="st-text">…</span></div>
     <div class="fig-wrap">
       <figure class="ff-fig" style="width: 49%">
         <img src="images/arch.png" data-fig-layout="beside-text">
@@ -354,7 +358,9 @@ This skips the AR width gates (FIG/WIDE / FIG/SQUARE / FIG/TALL / FIG/TALL-SMALL
 
 - **Text-sparse card → center** the figure (`.figure`) at 45–60 %. There isn't enough text to wrap, so a float just leaves an L-shaped void; a centered figure at a healthy width reads cleaner. (Worked example, same poster: the architecture figure was *wrapped* — lots of surrounding text — while the Multi-Head figure was *centered* — sparse text. Opposite calls, driven by text volume, not by the figure.)
 
-`data-fig-layout="beside-text"` is the opt-out marker for **either** layout (flex side-by-side *or* float-wrap) — it records "this figure intentionally shares its card with text" and skips the AR gates. It is **not** a generic mute: don't tag a centered, text-less small figure with it. Either enlarge it, wrap it, or (since `polish` is soft) accept the `FIG/TALL-SMALL` WARN.
+That L-shaped void is now a measured WARN: **FIG/BESIDE-TEXT-VOID** fires when the wrapping text stops more than 30 % of the figure's height short of its bottom (text too short to fill the float). Fix it in this order: **(1) lengthen the text** with paper-sourced detail until it fills the figure height, or **(2) shrink the figure** to the text height. **Centering is the last resort and only works for a WIDE figure (AR > ~1.3)** — centering a square or tall figure at a width that fits a column just swaps the L-void for *symmetric side voids* and shrinks the figure, which is a worse look, not a fix. (Worked example: a square 2×2 surface-plot figure (AR ≈ 1.0) with a one-line caption was first "fixed" by centering — it landed tiny with big blank margins on both sides; the real fix was to keep it beside-text and add two paper-sourced sentences so the prose filled the figure's height.)
+
+`data-fig-layout="beside-text"` is the opt-out marker for **either** layout (flex side-by-side *or* float-wrap) — it records "this figure intentionally shares its card with text" and skips the AR width gates. It is **not** a generic mute: it does **not** skip FIG/BESIDE-TEXT-VOID (a beside-text float still has to be genuinely text-rich — tagging a short-text float won't silence the void), and don't tag a centered, text-less small figure with it. Either enlarge it, wrap it, or (since `polish` is soft) accept the `FIG/TALL-SMALL` WARN.
 
 ### Gate B — Typography orphans
 
