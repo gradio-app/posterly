@@ -1296,6 +1296,20 @@ def cmd_style_check(args: argparse.Namespace) -> int:
         _eprint(f"ERROR: --tokens not found: {ascii_safe(tokens_path)}")
         return 2
 
+    # Parse --disable (rule IDs to drop from the verdict). Fail fast on a
+    # malformed value before we pay for the render gate.
+    disabled: set[int] = set()
+    for tok in (args.disable or "").split(","):
+        tok = tok.strip()
+        if not tok:
+            continue
+        try:
+            disabled.add(int(tok))
+        except ValueError:
+            _eprint(f"ERROR: --disable expects rule numbers, got "
+                    f"{ascii_safe(tok)!r}")
+            return 2
+
     # --- Source gate (always runs) --------------------------------------
     source_results, _parser, token_block_text = run_source_gate(
         html_text, html_path
@@ -1326,6 +1340,17 @@ def cmd_style_check(args: argparse.Namespace) -> int:
     all_results = sorted(
         source_results + render_results, key=lambda r: r.id
     )
+
+    # Drop disabled rules from the verdict (mark SKIPPED; _overall_status
+    # already ignores SKIPPED). Rules still ran -- the report shows what they
+    # would have said -- but they no longer drive pass/fail.
+    if disabled:
+        for r in all_results:
+            if r.id in disabled and r.status != "SKIPPED":
+                r.skip(f"disabled via --disable (rule {r.id})")
+        print(f"[style] NOTICE: rules {sorted(disabled)} disabled via "
+              f"--disable; excluded from the verdict.")
+
     status = _overall_status(all_results)
 
     report = {
@@ -1376,6 +1401,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="skip the render gate; rules 4 and 12 are marked SKIPPED. The "
              "source gate still runs and can PASS on its own (a notice is "
              "printed).",
+    )
+    p.add_argument(
+        "--disable", default="",
+        help="comma-separated rule IDs to skip (e.g. '4,5'). Disabled rules "
+             "still run but are marked SKIPPED and excluded from the "
+             "pass/fail verdict -- use to drop design-opinion rules while "
+             "keeping the operational ones.",
     )
     return p
 

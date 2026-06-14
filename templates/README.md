@@ -28,14 +28,17 @@ A new template **MUST**:
 1. Set `@page { size: <W>in <H>in }` (or `mm`/`cm`/`pt`) inside a `<style>` block — the canvas parser fails if absent.
 2. Carry `data-measure-role="poster"` on the root poster element.
 3. Use these roles consistently:
-   - `header` on the title block
+   - `header` on the **whole header region** (title + authors + affiliation, plus the logo /
+     venue-badge / QR blocks) — `polish`'s logo & QR gates only look *under* this role, so it
+     must wrap those blocks, not just the title text
    - `banner` on a horizontal banner row (optional)
    - `body` on the body grid container
    - `column` on each vertical content column
    - `card` on each content card inside columns
    - `hero` on a hero panel (mutually-exclusive with framework banner)
    - `footer-strip` on a takeaways / highlight strip (optional)
-   - `footer` on the bottom info bar (logos, QR, contacts)
+   - `footer` on the bottom info bar (method · venue · acknowledgements · code repo · contact —
+     logos and the QR live in the header, not here)
 4. Use the `--u` unit system (`1.6px` screen, `1mm` print) for ALL sizing via `calc(N * var(--u))` — never bare px except for hairlines.
 5. Keep all paper-specific content as `TODO` placeholders — neutral templates only.
 

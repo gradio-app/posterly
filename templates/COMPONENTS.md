@@ -3,8 +3,12 @@
 > **Provenance.** This catalog was authored by ARIS (skill `paper-poster-html`, MIT © 2026
 > wanshuiyin) on top of posterly's own component classes, and vendored back into posterly — see
 > `../NOTICE.md`. Section references of the form *DESIGN_FINAL §N* / *IMPLEMENTATION_CONVENTIONS
-> §N* point to that upstream skill's design docs; in posterly the equivalent rules live in
-> `SKILL.md` (the visual-review loop + fix vocabulary) and the gate scripts under `tools/`.
+> §N* point to that upstream skill's design docs (**not shipped here**); in posterly the
+> equivalent rules live in `SKILL.md` (the visual-review loop + fix vocabulary) and the gate
+> scripts under `tools/` — treat the §refs as historical pointers, not files you can open. Any
+> remaining *Phase N* wording maps to posterly's `SKILL.md` Steps: Phase 1 → Step 1.5 (content
+> audit), Phase 3 → Step 3 (scaffold), Phase 5 → Step 6 (visual / polish loop), Phase 6 → Step 6.5
+> (final review).
 
 This is the **authoritative component set** for posterly. The visual-review loop and the fix
 vocabulary (see `SKILL.md`) may only touch components listed here. A component that is not in
@@ -34,13 +38,22 @@ class names did not change, so the catalog applies to posterly's templates direc
 | **Required data attributes** | Attributes a gate keys off. Omitting them breaks a gate (usually `measure` or `asset_check`). |
 | **Token usage** | Which `--*` tokens the component's CSS references. Component CSS may **only** name colors via `var(--…)` (style_check rule 3). |
 | **Inspected by** | Which gate(s) read this component. Tells you which gate a bad edit will trip. |
-| **Allowed fix operations** | Subset of DESIGN_FINAL §10 letters `(a)–(g)` legal on this component. |
-| **Anti-patterns** | Specific things the loop has been caught doing. Each maps to a HARD style/asset rule or a rubric cap. |
+| **Allowed fix operations** | Subset of the fix-vocabulary letters `(a)–(g)` (defined in [Fix vocabulary](#fix-vocabulary) below) legal on this component. |
+| **Anti-patterns** | Specific things the loop has been caught doing. Each maps to a HARD style/asset rule, a rubric cap, or (for the disabled rule 4/5 cases) the catalog convention noted above. |
 
 Gate name shorthand (DESIGN_FINAL §3–§7):
-`preflight` (structure), `style` (`style_check.py`, 12 rules), `asset` (`asset_check.py`),
+`preflight` (structure), `style` (`style_check.py`, 13 rules), `asset` (`asset_check.py`),
 `measure` (`poster_check.py measure`, column/footer/canvas geometry),
 `polish` (`poster_check.py polish`, figure-AR / orphan / whitespace).
+
+> **posterly default — style rules 4 & 5 are OFF.** posterly runs `style_check` with rules
+> **4 (≤2 non-neutral hue families)** and **5 (no gradients)** disabled (`run_gates.py` forwards
+> `--style-disable 4,5`) — palette breadth and gradients are the author's call. So the
+> per-component "rule 4" / "rule 5" notes below describe the catalog **convention** (the templates
+> ship ≤2 hue families and flat fills, and keeping them that way is the recommended default), not
+> a hard failure — they only hard-fail if you re-enable them with `--style-disable ''`. The other
+> 11 rules (token-only colors, no inline `style=`, the font/size scale, the data-attribute and
+> variant-class contracts) stay HARD.
 
 ---
 
@@ -56,14 +69,15 @@ Gate name shorthand (DESIGN_FINAL §3–§7):
 - **Token usage**: `--bg-card`, `--bg-card-tint`, `--bg-emphasis`, `--accent` (highlight
   left-bar / border-strong), `--border-soft`, `--text-primary`. Shadow uses a token-derived
   rgba allowed by style rule 5 only at alpha ≤ 0.06.
-- **Inspected by**: `measure` (card-bottom spread < 5px, intercard gap 12–50, no half-empty
-  card), `preflight` (valid role), `style` (no inline style, colors via var).
+- **Inspected by**: `measure` (card-bottom spread < 5px, intercard gap 12–50 HARD), `polish`
+  (CARD/TRAILING — a single card stretched with blank space below its content), `preflight`
+  (valid role), `style` (no inline style, colors via var).
 - **Allowed fix operations**: (a) token retune, (b) move/add/delete a whole card across columns,
   (c) content rebalance inside the card, (e) global card stylesheet change (tokens only),
   (f) switch to `.card--compact` / `.card.highlight` / `.card.tinted`.
 - **Anti-patterns**: inline `style="background:#…"` on a card to "make it pop" (style rule 1/2);
   padding a card with blank lines to fill column height instead of moving content (measure
-  intercard-gap WARN, rubric "half-empty card" cap ≤5); a fourth highlight per column (dilutes
+  intercard-gap HARD fail / polish CARD/TRAILING, rubric "half-empty card" cap ≤5); a fourth highlight per column (dilutes
   the single-accent discipline, rubric ≤4 if it adds a hue family).
 
 ## numbered-card (`.card` + `.section-title` with `.num`)
@@ -99,10 +113,13 @@ Gate name shorthand (DESIGN_FINAL §3–§7):
 - **Allowed variants**: `.figure--wide` (predefined, image spans full card width — fix (f));
   the `<img>` width is set with the utility classes `.w-45 … .w-100` (5% steps), never inline,
   **except** the one sanctioned inline exception below.
-- **Required data attributes**:
-  - On the `<img>`: `data-source="paper"` **and** `data-asset-id="<manifest id>"` (both HARD,
-    style rule 10 + asset_check). The asset id must exist in `FIGURE_MANIFEST.json` with
-    `from_paper:true`.
+- **Required data attributes** (only when you adopt the figure-provenance gate — see `SKILL.md`
+  "Real-figure provenance gate"; the core flow does **not** require them):
+  - On the `<img>`: `data-source="paper"` **and** `data-asset-id="<manifest id>"`. These are a
+    **pair** — `style_check` rule 10 hard-fails an `<img data-source="paper">` that lacks
+    `data-asset-id`, so never add one without the other (and if you're not running the asset
+    gate, add neither). When the gate runs, the asset id must exist in `FIGURE_MANIFEST.json`
+    with `from_paper:true`.
   - Optional `data-fig-layout="beside-text"` on the `<img>` to opt the figure out of the
     AR-width gate when it legitimately shares its card with a meaningful text column
     (DESIGN_FINAL §10 (g) territory; polish honors it).
@@ -111,15 +128,18 @@ Gate name shorthand (DESIGN_FINAL §3–§7):
     `.w-NN` utility class when the value lands on a 5% step.
 - **Token usage**: `.figure img` border → `--border-soft`; `.caption` → `--text-secondary`,
   `--accent-deep` (caption `<strong>`); caption font-size `--fs-3`/`--fs-2`.
-- **Inspected by**: `asset` (≥2 paper figures, per-figure area ≥1.5% poster, total ≥12% body,
-  natural_px ≥1.5× rendered, manifest fields + sha256), `polish` (figure AR sizing:
+- **Inspected by**: `asset` (≥2 paper figures, per-figure area **1.5–13%** body, total **12–28%**
+  body [warn >24%, target ~14–22%; `--hero` raises the per-figure cap to 42%], natural_px ≥1.5×
+  rendered, manifest fields + sha256 — an *oversized* figure hard-fails too), `polish` (figure AR sizing:
   FIG/WIDE / FIG/SQUARE / FIG/TALL / FIG/BROKEN), `style` (rule 10 contract attrs; rule 4
   exempts paper images from hue clustering), `measure` (card geometry).
 - **Allowed fix operations**: (c) AR-bandwidth width adjust, (f) `.figure--wide`, (g) asset fix
   (re-crop, swap for a sharper figure from the *same* paper, re-run preprocess). Width changes
   via `.w-NN` utility (b/e) or the sanctioned `style="width:NN%"`.
-- **Anti-patterns**: `<img>` without `data-source`/`data-asset-id` (rule 10 HARD; also invisible
-  to asset_check so it doesn't count toward the ≥2 quota); a wide figure shrunk into a gray
+- **Anti-patterns**: a paper `<img>` carrying neither `data-source` nor `data-asset-id` —
+  invisible to asset_check, so it doesn't count toward the ≥2 quota (add both if you mean to run
+  the gate); `data-source="paper"` *without* `data-asset-id` (that pair-mismatch is the rule 10
+  HARD failure); a wide figure shrunk into a gray
   margin below 65% width (polish FIG/WIDE); a low-res crop where natural_px < 1.5× rendered
   (asset WARN→FAIL); fabricating/“illustrating” a figure not in the paper (rubric ≤3 cap,
   manifest `from_paper` must be false → fails the paper-figure quota).
@@ -159,16 +179,17 @@ Gate name shorthand (DESIGN_FINAL §3–§7):
   data attribute.)
 - **Token usage**: `--bg-emphasis` (block fill, flat in the fork), `--accent` (3u left-bar),
   `--accent` (`.label` text), `--font-sans` (label). Block font-size `--fs-5`.
-- **Inspected by**: equation gate (DESIGN_FINAL §5): `EQN/BROKEN` (MathJax did not render) =
-  HARD; `EQN/UNDERSIZED` (inner box > 80px tall but math bbox < 15% area) = HARD, < 25% or
-  bottom whitespace > 35% = WARN. Also `preflight` (bare `<` inside `$…$`, LaTeX residue),
-  `style` (label is sans, size via `--fs-*`).
+- **Inspected by**: `preflight` (bare `<` inside `$…$`, LaTeX residue), `measure`/`polish` (if the
+  page intends MathJax but no `<mjx-container>` rendered — CDN block / script error — that is a
+  HARD fail at render-settle), `style` (label is sans, size via `--fs-*`). **Note:** posterly has
+  *no* equation-box sizing gate — an `.eqn` left mostly empty is **not** auto-caught, so size it
+  by eye (the upstream ARIS `EQN/UNDERSIZED` check is not vendored here).
 - **Allowed fix operations**: (a) token retune, (c) shorten/split the equation (content
   rebalance), (f) `.eqn--large` to fill an undersized box, (e) global eqn stylesheet (tokens).
 - **Anti-patterns**: raw `<` inside math (preflight — MathJax parses it as an HTML tag);
-  embedding the equation as a screenshot image instead of MathJax (defeats EQN gate, inflates
-  PDF, fails the "real text" expectation); a per-equation px font-size override (rule 8 HARD);
-  an `.eqn` box left mostly empty (EQN/UNDERSIZED).
+  embedding the equation as a screenshot image instead of MathJax (defeats the MathJax-rendered
+  check, inflates PDF, fails the "real text" expectation); a per-equation px font-size override
+  (rule 8 HARD); an `.eqn` box left mostly empty (no gate catches this — check by eye).
 
 ## callout (`.callout`, variant `.callout.gold`)
 
@@ -185,9 +206,10 @@ Gate name shorthand (DESIGN_FINAL §3–§7):
   `measure` (counts toward card height).
 - **Allowed fix operations**: (a), (b) add/remove a callout instance, (c) reword from paper
   source, (f) toggle `.callout` ↔ `.callout.gold`.
-- **Anti-patterns**: `linear-gradient` fill (rule 5 HARD — this is the single most common
-  de-gradient regression); a third color on a callout (rule 4 — >2 hue clusters); using a
-  callout to introduce a claim not in the paper (Phase 6 final-HTML overclaim audit).
+- **Anti-patterns**: `linear-gradient` fill (rule 5 — convention is a flat fill; the single most
+  common de-gradient regression, hard only if rule 5 is re-enabled); a third color on a callout
+  (rule 4 — >2 hue clusters); using a
+  callout to introduce a claim not in the paper (Step 6.5 final-HTML overclaim audit).
 
 ## result-table (`table.result-table`)
 
@@ -207,7 +229,7 @@ Gate name shorthand (DESIGN_FINAL §3–§7):
   (content rebalance), (e) global table stylesheet (tokens). Switching which row is `.ours` is (c).
 - **Anti-patterns**: per-cell inline `style="color:#888"` for the reference row (the posterly
   originals did this; the ARIS fork replaces with `.text-muted`) — rule 2 HARD; numbers that do
-  not match the paper/results files (Phase 1 claim→evidence audit + Phase 6); a third highlight
+  not match the paper/results files (Step 1.5 claim→evidence audit + Step 6.5); a third highlight
   color beyond gold-soft/accent (rule 4).
 
 ## keybox (`.keybox` > `.kb-item` × N)
@@ -256,9 +278,9 @@ Gate name shorthand (DESIGN_FINAL §3–§7):
   must be flat, rule 6 font pairing), `preflight`.
 - **Allowed fix operations**: (a), (b) add/remove the whole strip, (c) reword takeaways from the
   paper, (e) global strip stylesheet (tokens).
-- **Anti-patterns**: `linear-gradient` strip background (rule 5 HARD — the de-gradient target);
+- **Anti-patterns**: `linear-gradient` strip background (rule 5 — convention is a flat fill, the de-gradient target; hard only if rule 5 is re-enabled);
   using it on a portrait template where it competes for scarce vertical space (use the final
-  conclusion card instead); inventing a takeaway not supported by the poster body (Phase 6);
+  conclusion card instead); inventing a takeaway not supported by the poster body (Step 6.5);
   keeping it on by default when it merely restates the body — drop the whole block instead.
 
 ## qr-block (`.qr-block` > img + `.qr-label`)
@@ -272,22 +294,25 @@ Gate name shorthand (DESIGN_FINAL §3–§7):
   final poster.
 - **Token usage**: `--accent` (border), white background, `--accent` (`.qr-label`, sans).
 - **Inspected by**: `style` (rule 4 QR exemption; rule 11 — inline SVG allowed only for
-  logo / QR fallback / catalogued structural diagram), `preflight` (no remote `src` — a remote
-  QR-service URL hangs `measure`'s networkidle wait and link-rots), verify-final (no remote
-  asset, ≤20MB).
+  logo / QR fallback / catalogued structural diagram), `preflight` (warns on a remote `src` — a
+  remote QR-service URL hangs `measure`'s networkidle wait and link-rots; the hang then HARD-fails
+  at render-settle), verify-final (file size ≤20MB — it checks page count / dimensions / size
+  only, **not** remote assets).
 - **Allowed fix operations**: (a) token retune (border color), (g) asset fix (regenerate the QR
   locally at ≥2× rendered px).
-- **Anti-patterns**: a remote QR-service `src` (preflight/verify-final — networkidle hang +
-  link rot); a homemade decorative SVG that is not actually a QR (rule 11); a blurry QR below
-  2× rendered px (asset/polish).
+- **Anti-patterns**: a remote QR-service `src` (preflight warns; the networkidle hang then
+  HARD-fails at render-settle, plus link rot); a homemade decorative SVG that is not actually a QR
+  (rule 11); a blurry QR below 2× rendered px (no gate checks QR resolution — verify by eye).
 
 ## venue-badge (`.venue-badge`, default text identity)
 
-- **Purpose**: The default, logo-free venue identity in the header left slot — venue / year /
-  "POSTER" tag as text. ARIS default is a **text** badge (DESIGN_FINAL §2: "venue identity
-  默认文字 badge"); a venue logo is opt-in and goes in `.logo-slot`, not here.
-- **Allowed variants**: `.vb-venue`, `.vb-year`, `.vb-tag` sub-lines. No image variant — if the
-  venue permits a logo, use `.logo-slot` with the logo contract instead.
+- **Purpose**: The default venue identity in the header left slot — venue / year /
+  "POSTER" tag as text. The default is a **text** badge; a venue logo is opt-in — place it
+  *above* this text inside `.venue-badge` (see "`logo-row` + venue-badge logo" below).
+  Affiliation / lab logos go in `.logo-slot` / `.logo-row`, not here.
+- **Allowed variants**: `.vb-venue`, `.vb-year`, `.vb-tag` sub-lines, plus an optional venue
+  logo `<img>` placed above them (the "venue-badge logo" of the `logo-row` entry below).
+  Affiliation / lab logos use `.logo-slot` instead.
 - **Required data attributes**: none. (If ever replaced by a logo SVG, that SVG needs
   `data-color-exempt="logo"` — but that is the `.logo-slot` path, not the badge.)
 - **Token usage**: `--accent-deep` (`.vb-venue`), `--text-secondary` (`.vb-year`), `--accent`
@@ -297,9 +322,9 @@ Gate name shorthand (DESIGN_FINAL §3–§7):
 - **Allowed fix operations**: (a), (c) edit venue/year text. Switching to a logo is a (b)
   component swap into `.logo-slot` (requires the logo contract, see below).
 - **Anti-patterns**: hardcoding a venue's brand hex inline to "match their logo" (rule 1/2 HARD —
-  venue color comes from the opt-in token pack, not inline hex); putting a raster logo inside
-  the badge without the `.logo-slot` `data-color-exempt` path (rule 1 — un-exempted foreign
-  colors trip hue clustering).
+  venue color comes from the opt-in token pack, not inline hex); a *fabricated* venue seal
+  instead of an official logo file (the v31 cautionary tale); an inline-SVG venue logo missing
+  `data-color-exempt="logo"` (rule 1 — its color literals trip hue clustering).
 
 ## logo-slot (`.logo-slot` > img/svg, optional)
 
@@ -307,9 +332,11 @@ Gate name shorthand (DESIGN_FINAL §3–§7):
   off-palette color is allowed, via explicit exemption.
 - **Allowed variants**: a raster `<img>` logo, or an inline `<svg>` logo. Either way the logo
   must be height-matched to the QR (~85u) so the header does not grow.
-- **Required data attributes**: `data-color-exempt="logo"` on the logo element (HARD, style
-  rule 1 + rule 11) — this is what tells `style_check` the foreign colors inside are sanctioned.
-  Inline SVG logos are one of the two sanctioned inline-SVG uses (rule 11).
+- **Required data attributes**: `data-color-exempt="logo"` on the logo element — tells
+  `style_check` the off-palette colors inside are sanctioned. It is **load-bearing for an inline
+  `<svg>` logo** (its color literals would otherwise trip rule 1, and the inline SVG itself needs
+  the rule 11 allowance); a raster `<img>` logo has no color literals in the HTML, so the marker
+  is convention there, not a hard gate. Keep it on either kind so the intent is explicit.
 - **Token usage**: container only (`--border-soft` if framed); the logo's own colors are exempt.
 - **Inspected by**: `style` (rule 1 exemption, rule 2 inline-style exemption for the logo SVG's
   internal markup, rule 11 inline-SVG allowance), `measure` (header geometry).
@@ -387,7 +414,7 @@ new hex literal, homemade decorative SVG, single-element font-size override.
 ## New components require a human checkpoint
 
 If a fix genuinely needs a component that is **not** in this catalog, the loop **must stop**.
-A new component cannot be born inside the Phase 5 visual loop (DESIGN_FINAL §10).
+A new component cannot be born inside the Step 6 visual loop.
 
 The procedure (DESIGN_FINAL §10, final paragraph):
 
@@ -396,7 +423,7 @@ The procedure (DESIGN_FINAL §10, final paragraph):
 3. **Add a catalog entry** here in COMPONENTS.md with all seven fields (purpose / variants /
    data attributes / token usage / inspected-by / allowed fix ops / anti-patterns), and add its
    tokenized CSS to the template stylesheet (colors via `var(--…)` only, sizes via `--fs-*`).
-4. **Re-run from Phase 3** (scaffold + token patch), so the new component passes `preflight` +
+4. **Re-run from Step 3** (scaffold + token patch), so the new component passes `preflight` +
    `style` from a clean state before re-entering the layout/visual loop. You may not splice a
    new component into a mid-loop poster and keep going.
 
@@ -418,7 +445,7 @@ a human-gated, catalogued, re-run-from-Phase-3 step can extend it.
   denser than stacking full-margin `.eqn` blocks.
 - **Variants**: none. **Data attributes**: none.
 - **Tokens**: inherits `.eqn` tokens; tightened margins/padding only.
-- **Inspected by**: style (rule 8 via `.eqn`), measure (height), EQN gates.
+- **Inspected by**: style (rule 8 via `.eqn`), measure (height + the MathJax-rendered check).
 - **Allowed fix ops**: rebalance (move rows between stack and prose); variant via `.eqn--large` on one row.
 - **Anti-patterns**: >4 rows (split into two cards); mixing unrelated equations.
 
@@ -457,7 +484,7 @@ a human-gated, catalogued, re-run-from-Phase-3 step can extend it.
   paper values; gold-soft background marks "derived, not copied".
 - **Contract**: the table caption or setup line MUST state the derivation ("Δ = AuxDPO −
   DPO, derived"). Negative/degrading values use *italic*, never red.
-- **Inspected by**: style rule 4 (gold family), content audits (Phase 1/6 verify arithmetic).
+- **Inspected by**: style rule 4 (gold family), content audits (Step 1.5 / 6.5 verify arithmetic).
 - **Anti-patterns**: mixing derived and verbatim values in one column; unlabeled derived data.
 
 ### `keybox--4`
@@ -488,10 +515,12 @@ a human-gated, catalogued, re-run-from-Phase-3 step can extend it.
   official venue logo above the venue-badge text. Sized to pair with the QR
   (logo-row 68u, venue logo 52u) — visible from poster distance, never tiny.
 - **Contract**: REAL logo files only (user-provided or official sources) — fabricating
-  a seal as inline SVG is forbidden (the v31 cautionary tale). Every logo `<img>` MUST
-  carry `data-color-exempt="logo"` (palette-gate exemption) and a meaningful `alt`.
+  a seal as inline SVG is forbidden (the v31 cautionary tale). Every logo `<img>` should
+  carry `data-color-exempt="logo"` (palette-gate exemption — load-bearing for an inline-SVG
+  logo, convention for a raster one) and a meaningful `alt`.
 - **Tokens**: layout-only CSS; logo artwork colors are exempt by contract.
-- **Inspected by**: style rules 10/11 (exemption attribute), preflight (file exists).
+- **Inspected by**: preflight (file exists); for an inline-SVG logo, style rules 1/11
+  (color exemption + inline-SVG allowance).
 - **Allowed fix ops**: swap logo file, adjust the row's height token, drop a logo.
 - **Anti-patterns**: fabricated/approximated seals; logos so small they read as dirt
   (< ~40u); using the logo row to smuggle decorative graphics.

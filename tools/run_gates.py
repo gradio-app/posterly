@@ -296,6 +296,8 @@ def _build_argv(
             argv += ["--tokens", str(Path(opts.tokens).resolve())]
         if opts.no_render:
             argv += ["--no-render"]
+        if opts.style_disable:
+            argv += ["--disable", opts.style_disable]
         argv += ["--json", str(report_json_dir / "style_check.json")]
         return argv
 
@@ -565,6 +567,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="skip render-dependent checks; passed through to "
              "style_check.py / asset_check.py (their render rules degrade "
              "to SKIPPED / natural-size estimates)",
+    )
+    p.add_argument(
+        "--style-disable", default="4,5",
+        help="comma-separated style rule IDs to drop, forwarded to "
+             "style_check.py --disable. posterly default '4,5' drops the "
+             "<=2-hue-cluster (R4) and no-gradient (R5) design-opinion rules "
+             "while keeping the operational discipline; pass '' to enforce "
+             "all 13.",
     )
     return p
 

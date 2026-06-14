@@ -61,7 +61,7 @@ Don't pick a template, colors, logos, a QR target, or the text density silently.
 - **Palette**: "Lab/venue colors? E.g. `#XXX` accent + `#YYY` highlight — or say 'you pick'." When the user gives colors, use them. When they don't, do **not** silently fall back to the one house style: derive a poster-specific palette from the materials at hand (**§Palette derivation** below) and propose it in this same round — "suggest `#660874` from the Tsinghua brand — OK?" — so the user can veto cheaply. The neutral slate-blue + gold shipped in the templates is the *last-resort* fallback, not the default.
 - **Logos & venue mark**: "Any logos to place? Affiliation / lab logo, and the conference / journal logo — give paths or URLs, or say 'none'." Don't assume a venue logo is wanted; cross-check the logo policy from Step 0 (some venues forbid them). When logo files are provided, inspect each one (aspect ratio, transparency, background — Step 2 item 5) and pick a size class + chip treatment per **Gate E — Header logos** below; don't just drop them in at the default size.
 - **QR code**: "Want a QR code? If so, pointing at which link — paper / arXiv / code repo / project page — or none?" Generate it **offline** as a local image (see Customizing in README / `qrencode`); never leave a remote QR-service URL in the poster — it hangs `measure`'s networkidle wait and link-rots in print/archive.
-- **Text density**: "How much text should the poster carry? (a) **Normal** (default) — posterly's usual concise balance of prose and paper figures; (b) **Light** — fewer words, with the saved space reassigned to paper-sourced figures/diagrams across the poster." For **Light**: trim secondary prose and merge or drop low-value text cards *only* when the freed area becomes visual real estate — larger AR-appropriate figures, figure-dominant cards, or additional useful paper visuals. Keep multiple figures while each stays legible; do **not** concentrate the budget into one enlarged centerpiece or switch layouts for that reason. "More room" means larger, clearer visual regions — never blank columns / cards / gaps: `measure`, Gate A, Gate C, `CARD/TRAILING`, `FIG/BESIDE-TEXT-VOID`, and `HERO/STAGE-LETTERBOX` all still apply.
+- **Text density**: "How much text should the poster carry? (a) **Normal** (default) — posterly's usual concise balance of prose and paper figures; (b) **Light** — fewer words, with the saved space reassigned to paper-sourced figures/diagrams across the poster." For **Light**: trim secondary prose and merge or drop low-value text cards *only* when the freed area becomes visual real estate — larger AR-appropriate figures, figure-dominant cards, or additional useful paper visuals. Keep multiple figures while each stays legible; do **not** concentrate the budget into one enlarged centerpiece or switch layouts for that reason. "More room" means larger, clearer visual regions — never blank columns / cards / gaps: the Step 4 `measure` gate and the Step 6 anti-whitespace / figure gates all still apply.
 
 Persist the user's answers as you go — re-reading them later prevents "improvement" loops that revert deliberate decisions.
 
@@ -139,7 +139,7 @@ Before laying out, the draft must be audited for paper-to-poster fidelity. Past 
 
 **How to run it (in order of preference):**
 
-1. **External LLM reviewer with file access (best).** If you have Codex MCP, GPT-5 with file access, another Claude session, or any reviewer that can `Read` paper source files, use that. Recommended defaults if you have Codex MCP: `model="gpt-5.5"`, `model_reasoning_effort="xhigh"`, `sandbox="danger-full-access"` (read-only audit). Send the evidence pack + reviewer prompt below.
+1. **External LLM reviewer with file access (best).** If you have Codex MCP, GPT-5 with file access, another Claude session, or any reviewer that can `Read` paper source files, use that. Recommended defaults if you have Codex MCP: `model="gpt-5.5"`, `model_reasoning_effort="xhigh"`, `sandbox="danger-full-access"` (read-only audit — the sandbox often fails to start in containers / nested namespaces, and the audit only reads files anyway). Send the evidence pack + reviewer prompt below.
 
 2. **Self-audit (fallback).** Walk every numeric claim on the poster and find its `file:line` in the paper source. Build the claim → evidence table by hand. Slower, easier to miss things, but better than skipping.
 
@@ -213,12 +213,23 @@ A gallery template is a **scaffold**: it passes `preflight` (structure) as shipp
 
 Tools live in `tools/` and read `@page` from the HTML, so they're canvas-agnostic — the same commands work for ICLR portrait and ICML landscape.
 
+**Theorem & equation sanity (quick, right after scaffolding).** Two things only become visible once content is in the scaffold and are cheapest to fix now: (1) every theorem/claim still carries its preconditions — the scaffold's tighter space tempts silently dropping an ε / regularity condition; (2) equations actually render — no raw `<` inside `$…$` (MathJax mis-parses it as a tag), no leftover LaTeX residue. `preflight` catches the mechanical cases; eyeball the preconditions. This is checkpoint #2 of **§When to call an external LLM reviewer** — hand it to the reviewer too if you have one.
+
 ### Step 4 — Render + measure loop (HARD GATE)
 
-> Or drive the whole loop with `run_gates.py` (see **§Enhanced gates & fix discipline**), which runs this `measure` gate plus `preflight` / `style` / `asset` / `polish` in one `GATE_REPORT.json`. The standalone `measure` call below is the minimum.
+**Default driver: `run_gates.py`.** After every layout change, run the whole sequence in one shot — `preflight` → `style` → `measure` → `polish` in load-bearing order (plus the `asset` gate only when you pass `--manifest`; otherwise it's reported `NOT_RUN` and excluded from `overall`), into one `GATE_REPORT.json` (see **§Enhanced gates & fix discipline**):
 
 ```bash
-# After every layout change:
+# After every layout change (the default loop driver):
+python <skill>/tools/run_gates.py poster.html --report GATE_REPORT.json
+```
+
+This is what wires the **`style`** hard gate into every iteration — the standalone `measure` call below does **not** run `style`. posterly runs `style` with rules **4 (≤2 hue families) and 5 (no gradients) disabled by default**: palette and gradient choices are yours, while the rest of the design-system discipline stays enforced. Override with `--style-disable ''` to enforce all 13, or e.g. `--style-disable 4,5,6,7` to also drop the font rules.
+
+The standalone `measure` call is the **minimum fallback** — a quick single-gate spot check; it skips `style`/`asset`:
+
+```bash
+# Minimum / spot-check only (no style, no asset):
 python <skill>/tools/poster_check.py measure poster.html
 ```
 
@@ -233,7 +244,7 @@ Targets (defaults; configurable via flags):
 - spread > 5: shrink the column with the lowest last-card by reducing a paragraph's `margin-bottom` by 1u, trimming one line, or shrinking a fixed-height figure by 5u.
 - intercard gap > 50: an under-filled column is being stretched. Remove `justify-content: space-between`/`space-around` from the column, use a fixed `gap`, and absorb the slack with CONTENT (grow a figure, add paper-sourced text per Gate C) — never with whitespace.
 - intercard gap < 12: an over-full column is being squeezed by shrinking the row-gap, which buries card shadows. Restore the design `gap` (6u ≈ 22.7 px) and take the height back out of content instead (trim a paragraph, shrink a figure by 5u, or move a card to a shorter column).
-- gap > 50 everywhere: body-grid is too tall; grow a card or accept whitespace.
+- gap > 50 everywhere: body-grid is too tall; grow a card with substance (per Gate C / *Fill means substance*) or reselect a smaller canvas — don't leave the whitespace.
 - gap < 30 anywhere: banner/header outgrew its slot; check `.framework-banner` rendered height.
 - position misaligned (the usual full-canvas failure): make `.poster` full-bleed (`width: 100%; height: 100%; margin: 0; padding: 0` in `@media print`); remove any `transform: translate*` or `position: absolute` offsets; ensure `html, body { margin: 0; padding: 0 }` in the print media query; and check that the print `@media` block comes AFTER the screen `.poster` rule so source-order cascade resolves the print override winning.
 - canvas-fill < 95 % (diagnostic fired first): poster forgot `@media print { :root { --u: 1mm } }` so it renders at screen scale. Add the override.
@@ -285,7 +296,7 @@ Other polish:
   - **`balance`** only on **short, centered** display text (titles, captions, one-line takeaways ≤ 2 lines); it evens the ragged edge.
   - **Never `balance` on multi-sentence prose** (banner TL;DR, long takeaways), and especially not with `text-align: left`. Near a 2↔3-line threshold, balance shortens and hyphenates the **first** line to "even" the block, producing a crammed-left / big-gap-right banner. For prose that should fill its box, use **`text-wrap: pretty`** (fills each line, only protects the last-line orphan) or plain natural wrap.
 
-**Step 6.5 — Final review (strongly recommended)**: send the rendered PDF (or its high-res PNG slices) AND the HTML to the same kind of reviewer used in Step 1.5 (external LLM if available, self-audit otherwise). Same evidence-pack rule. The reviewer prompt focuses on three things distinct from Step 1.5:
+**Step 6.5 — Final review (strongly recommended)**: once `run_gates.py` is all-green and polish warnings are zero-or-waived, send the rendered PDF (or its high-res PNG slices) AND the HTML to the same kind of reviewer used in Step 1.5 (external LLM if available, self-audit otherwise). Same evidence-pack rule. The reviewer prompt focuses on three things distinct from Step 1.5:
 1. **Visual rhetoric**: does the poster's narrative carry? Are the headline numbers prominent? Is the framework banner readable from 2 m?
 2. **Residue**: any `\ref{`, `\cite{`, leftover `TODO`, raw `<` in math, missing image, broken QR link.
 3. **Final claim audit**: re-check numbers and overclaims AFTER content has been polished — polish often introduces new claims ("a key advantage of…") that were not in the original draft.
@@ -312,7 +323,7 @@ Then report to the user:
 
 ## Visual polish gates (Step 6 — soft gate)
 
-Alignment passes but the poster can still look amateur. These three failure modes recurred across sessions enough to be promoted to first-class checks. `tools/poster_check.py polish` surfaces each as a WARN; the rules below explain how to fix.
+Alignment passes but the poster can still look amateur. The failure modes below (Gates A–E) recurred across sessions enough to be promoted to first-class checks. `tools/poster_check.py polish` surfaces each as a WARN; the rules below explain how to fix.
 
 ### Gate A — Figure sizing by aspect ratio
 
@@ -336,7 +347,7 @@ Concrete bad case (prior session): `co-consideration.png` (AR ≈ 1.41) shipped 
 
 ```html
 <img src="images/dynamics.png" alt="Training dynamics"
-     data-fig-layout="beside-text" style="width: 100%">
+     data-fig-layout="beside-text" class="w-100">
 ```
 
 This skips the AR width gates (FIG/WIDE / FIG/SQUARE / FIG/TALL / FIG/TALL-SMALL) for that image only — **FIG/BROKEN still applies** (a blank image is a bug regardless of intent). The attribute records the design decision *in the markup*, so a later edit (human or agent) reads "this figure is intentionally beside text" and leaves the layout alone instead of widening it to silence the warning. Use it only after you've eyeballed the render and confirmed the text column isn't squeezed — it is an opt-out for a *verified-good* layout, not a way to mute a real warning. `examples/powerflow_icml2026/poster.html` uses it on its training-dynamics card.
@@ -349,7 +360,7 @@ This skips the AR width gates (FIG/WIDE / FIG/SQUARE / FIG/TALL / FIG/TALL-SMALL
   <div class="card" data-measure-role="card">
     <div class="section-title"><span class="num">N</span><span class="st-text">…</span></div>
     <div class="fig-wrap">
-      <figure class="ff-fig" style="width: 49%">
+      <figure class="ff-fig w-50">
         <img src="images/arch.png" data-fig-layout="beside-text">
         <figcaption class="caption">…</figcaption>
       </figure>
@@ -392,7 +403,7 @@ Defenses (preferred → fallback):
 
 **Wrong fix**: shrink `gap` globally to hide the whitespace. Peers still have meaningful internal gaps; reducing them makes the others claustrophobic.
 
-**Right fix**: ADD MEANINGFUL CONTENT to the short column until it's within ~5 % of its peers' natural height. From the paper, recover:
+**Right fix**: FILL THE SLACK WITH SUBSTANCE until the short column is within ~5 % of its peers' natural height — a larger paper figure where one earns the space, otherwise real paper content (see *"Fill means substance"* below for the figure-vs-prose order). Content you can recover from the paper:
 - Sub-claims that were footnotes or implicit assumptions
 - A 2–3 bullet "challenges" or "design choices" recap
 - A short caption beside a previously-bare figure
@@ -401,9 +412,9 @@ Concrete bad case (prior session): the SnipSnap Motivation column shipped with a
 
 Enforcement is two-layered. `measure` **hard-fails** any column whose gap between consecutive stacked cards exceeds `--max-intercard-gap` (default 50 px, absolute) — this is the backstop that catches the space-between shortcut regardless of mechanism (added after a production poster shipped 98–135 px voids with every gate green: spread read 0.00 px because space-between pinned the last card to the bottom, and the relative polish warn below stayed silent at 4–6 % of a 36-inch column). `polish` additionally warns earlier, when a column with computed `justify-content: space-between` has an inter-card gap exceeding 5 % of the column's height. Tune via `--max-space-between-fill`.
 
-**The same trap, one card.** A single card set to `flex: 1` (the standard way to make its column reach the footer and satisfy `measure`'s spread/gap gates) is measured only by its **bottom edge** — a card stretched to twice its content's height passes `measure` with spread = 0 while the lower half is blank white. `measure` can't catch it (it checks only the bottom edge), so **`polish` does**: the **CARD/TRAILING** warning fires when a card leaves more than `--max-card-trailing` (default 10 %) of its height blank below its last line of content. A green bottom-edge gate is necessary, not sufficient. Never stretch a block to create whitespace just to make the layout "fit." Fix it the same way as Gate C, in order of preference: (1) fill the card with real content from the paper until it is comfortably full (aim ≥ ~80 %, not 46 %); (2) enlarge a fixed-height figure to carry the space with substance; (3) if the content genuinely is that sparse, choose a **smaller canvas** so it fills — a single paragraph does not belong on a 60-inch sheet. A half-empty card reads as "ran out of things to say" and is a failed poster even when every gate is green.
+**The same trap, one card.** A single card set to `flex: 1` (the standard way to make its column reach the footer and satisfy `measure`'s spread/gap gates) is measured only by its **bottom edge** — a card stretched to twice its content's height passes `measure` with spread = 0 while the lower half is blank white. `measure` can't catch it (it checks only the bottom edge), so **`polish` does**: the **CARD/TRAILING** warning fires when a card leaves more than `--max-card-trailing` (default 10 %) of its height blank below its last line of content. A green bottom-edge gate is necessary, not sufficient. Never stretch a block to create whitespace just to make the layout "fit." Fix it like Gate C — fill the slack with substance (aim ≥ ~80 % full, not 46 %): a bigger paper figure first, real paper content when the figure can't carry it, per the figure-vs-prose order in *"Fill means substance"* below; if the section is genuinely that sparse, choose a **smaller canvas** instead — a single paragraph does not belong on a 60-inch sheet. A half-empty card reads as "ran out of things to say" and is a failed poster even when every gate is green.
 
-**"Fill" means substance, not word-count — and a figure is substance.** These anti-whitespace gates (Gate C, CARD/TRAILING, FIG/BESIDE-TEXT-VOID) exist to kill *empty pixels*, not to mandate dense prose. A poster is a **talk aid, not a self-contained paper**: you stand beside it, and the small details — a derivation step, a hyperparameter, an edge-case caveat — are yours to *say out loud*, not to cram onto the sheet. So the legitimate ways to fill a region are, in order: (1) a **larger, more legible figure** that earns the space; (2) **figure-only, or figure + a one-line caption**, when the figure already makes the point clearly — a self-explanatory plot does not need a paragraph restating it; (3) genuinely load-bearing prose. Reach for more text only when the *figure can't carry the point alone*. And figure legibility wins ties: if cramming text beside a figure would shrink it below what reads at 2 m, **drop the text and let the figure be big** (center it, short caption, presenter fills the rest) rather than starve the image to justify a paragraph. What these gates fail is a half-empty card or a thumbnail figure marooned in whitespace — **not** a clean card whose work is done by one big figure and a few words.
+**"Fill" means substance, not word-count — and a figure is substance.** These anti-whitespace gates (Gate C, CARD/TRAILING, FIG/BESIDE-TEXT-VOID) exist to kill *empty pixels*, not to mandate dense prose. A poster is a **talk aid, not a self-contained paper**: you stand beside it, and the small details — a derivation step, a hyperparameter, an edge-case caveat — are yours to *say out loud*, not to cram onto the sheet. So the legitimate ways to fill a region are, in order: (1) a **larger, more legible figure** that earns the space; (2) **figure-only, or figure + a one-line caption**, when the figure already makes the point clearly — a self-explanatory plot does not need a paragraph restating it; (3) genuinely load-bearing prose. Reach for more text only when the *figure can't carry the point alone*. And figure legibility wins ties: if cramming text beside a figure would shrink it below what reads at 2 m, **drop the text and let the figure be big** (center it, short caption, presenter fills the rest) rather than starve the image to justify a paragraph. And if a region is *genuinely* that sparse — the figure is already as large as it should be and there is no real paper content left — the fix is a **smaller canvas** or dropping an optional block (banner / takeaways), never stretching whitespace to fill a sheet that's too big. What these gates fail is a half-empty card or a thumbnail figure marooned in whitespace — **not** a clean card whose work is done by one big figure and a few words.
 
 ### Gate D — `<br>` line breaks inside a flex container
 
@@ -479,15 +490,13 @@ The defaults are calibrated against the size classes, so a logo sized by the rec
 
 ## When to call an external LLM reviewer (three checkpoints)
 
-The skill works fine without one, but a second pair of eyes reliably catches paper-to-poster fidelity bugs you'll otherwise discover next to the print station. Three natural checkpoints:
+The skill works fine without one, but a second pair of eyes reliably catches paper-to-poster fidelity bugs you'd otherwise find next to the print station. Three checkpoints, each documented at its home:
 
-1. **Content critique** (Step 1.5) — does the poster's prose / numbers / claims match the paper?
-2. **Theorem & equation pass** (after Step 3) — are theorem preconditions complete? Equations rendered correctly?
-3. **Final polish** (Step 6.5) — fresh eyes on the assembled poster for residue and overclaims. Strengthen this into a true **final gate**: run it **cross-model** (a different model family than drafted the poster) on the *final artifacts only*, after `run_gates.py` is all-green — see **§Enhanced gates & fix discipline → Cross-model final review**.
+1. **Content critique** — Step 1.5 (claim → evidence audit; the canonical reviewer settings *and* the prompt template live there).
+2. **Theorem & equation pass** — the quick check right after Step 3 (preconditions survived the scaffold; equations actually render).
+3. **Final polish** — Step 6.5, strengthened into a cross-model **final gate** run after `run_gates.py` is all-green (see **§Enhanced gates & fix discipline → Cross-model final review**).
 
-The bias is **send when uncertain**. Cost: 2-3 min. Cost of a silent error in a poster you'll print and stand next to for 2 hours: high.
-
-**Recommended reviewer settings (if you have Codex MCP):** `model="gpt-5.5"`, `model_reasoning_effort="xhigh"`, `sandbox="danger-full-access"` (read-only review; the sandbox often fails to start in containers / nested namespaces and the audit is read-only anyway). Any other capable reviewer LLM that can `Read` paper files works equally well — see Step 1.5 for the canonical prompt template.
+The bias is **send when uncertain** — cost 2-3 min, against a silent error in a poster you'll print and stand next to for two hours.
 
 ## Tools
 
@@ -529,7 +538,7 @@ python tools/run_gates.py poster.html --report GATE_REPORT.json
 python tools/run_gates.py poster.html --manifest FIGURE_MANIFEST.json --report GATE_REPORT.json
 ```
 
-Order is fixed: `preflight → style → asset → measure → polish`. The cheap static gates (preflight/style/asset) run before the expensive renders (measure/polish), so a structural or style bug fails fast instead of burning a render. `GATE_REPORT.json` holds every gate's pass/fail + findings — one read tells you the whole fix surface. Child processes run with `sys.executable`, so it uses the same interpreter/venv as posterly. Plain `poster_check.py measure` still works if you don't adopt the style/asset gates.
+Order is fixed: `preflight → style → asset → measure → polish`. The cheap static gates (preflight/style/asset) run before the expensive renders (measure/polish), so a structural or style bug fails fast instead of burning a render. `GATE_REPORT.json` holds every gate's pass/fail + findings — one read tells you the whole fix surface. Child processes run with `sys.executable`, so it uses the same interpreter/venv as posterly. By default `run_gates.py` forwards `--style-disable 4,5` to the style gate (posterly drops the hue-count and gradient design rules — see **§Style HARD gate**); pass `--style-disable ''` to enforce all 13. Plain `poster_check.py measure` still works if you don't adopt the style/asset gates.
 
 Without `--manifest`, the asset gate is **opt-in** — it is reported `NOT_RUN` and excluded from `overall` (real figures not verified), so a green `overall` means *the gates that ran* passed, not that figures were checked. (This is a posterly fix to the vendored orchestrator — see `NOTICE.md`; upstream silently counted the missing-manifest asset gate as a pass.)
 
@@ -538,10 +547,12 @@ Without `--manifest`, the asset gate is **opt-in** — it is reported `NOT_RUN` 
 The Step 6 `polish` gate is *soft* (aesthetics). `style_check.py` is a **hard** gate for the design-system discipline the templates assume:
 
 ```bash
-python tools/style_check.py poster.html        # add --tokens <pack.json> if you use one
+python tools/style_check.py poster.html --disable 4,5   # posterly default; add --tokens <pack.json> if you use one
 ```
 
 13 rules: colors only via `var(--…)` from the `:root` token block (no stray hex), no inline `style=`, no gradients, font-family against a whitelist, font-size only from the `--fs-*` scale, bounded token count, the `data-*` / inline-SVG contracts, and (rule 13) every `block--modifier` variant class used in the markup must have a matching CSS rule — a dropped rule leaves the class inert and the layout silently wrong (e.g. a `keybox--4` with no `.keybox.keybox--4` rule falls back to the 3-col base grid, orphaning a 4th tile into an empty second row). Pure static analysis plus a small Playwright render gate for computed-style rules, so it's cheap — run it right after the Step 3 scaffold and on every layout change.
+
+**posterly default — rules 4 and 5 are disabled** (`run_gates.py` forwards `--style-disable 4,5`): rule 4 (≤2 non-neutral hue families) and rule 5 (no gradients) are *design-opinion* rules, so palette breadth and gradients are left to you. The other 11 — the *operational* discipline: token-only colors, no inline `style=`, the font/size scale, the data-attribute and variant-class contracts — stay enforced. A disabled rule still runs and shows in the report as `SKIPPED`; it just no longer drives pass/fail. Calling `style_check.py` directly enforces all 13 unless you pass `--disable 4,5`; re-enable everything with `--style-disable ''` on `run_gates.py`.
 
 > **Note.** `style_check` assumes a *tokenized* template — a `/* ===== DESIGN TOKENS ===== */ … /* ===== END DESIGN TOKENS ===== */` block, colors via `var(--…)`, sizes via `--fs-*`, no inline `style=` / gradients. posterly's `*_neutral.html` templates **are** tokenized (vendored from ARIS — see `NOTICE.md`), so a poster scaffolded from them passes `style` out of the box. A hand-written or imported non-tokenized template will FAIL `style` until you tokenize it; the other gates (`preflight` / `measure` / `polish`) don't require tokenization. (Note: the older posters under `examples/` predate tokenization and will not pass `style` — they're showcase artifacts, not templates.)
 
@@ -554,7 +565,7 @@ Step 1–2 already says "use real figures, ≥2× resolution". This gate *enforc
 1. `python tools/extract_pdf_figures.py paper.pdf --out fig_work/ contact-sheet` → a labelled page grid to read crop bboxes off; then the `auto` (candidate regions) and/or `crop` subcommands at 300–450 DPI (the top-level `--out` goes **before** the subcommand). **A human confirms crop choices** (🚦).
 2. `python tools/preprocess_figures.py fig_work/fig.png --autocrop --manifest FIGURE_MANIFEST.json` → trims white margins, checks resolution, and (with `--manifest`) re-syncs each crop's `natural_px` / `sha256` so the manifest stays honest. Without `--manifest` it autocrops but leaves stale hashes that `asset_check` will then reject.
 3. Embed as `<img data-source="paper" data-asset-id="fig1">`; record each in `FIGURE_MANIFEST.json` (page, bbox, dpi, sha256, natural_px, `from_paper: true`).
-4. `python tools/asset_check.py poster.html --manifest FIGURE_MANIFEST.json` → fails unless ≥2 paper figures resolve to manifest entries with matching sha256 and adequate rendered area. Theory-only papers waive the total-area rule at a human checkpoint (`--waive-total-area`), never silently.
+4. `python tools/asset_check.py poster.html --manifest FIGURE_MANIFEST.json` → fails unless ≥2 paper figures resolve to manifest entries with matching sha256 and a rendered area **inside a band** — per-figure `1.5–13%` of the body, total `12–28%` (warn above 24%; target ~14–22%; `--hero` raises the per-figure cap to 42% for a hero centerpiece). So a too-small figure *and* an oversized one both hard-fail — worth knowing if you enlarge figures for a Light-density poster. Theory-only papers waive the total-area rule at a human checkpoint (`--waive-total-area`), never silently.
 
 If you don't adopt this contract, skip it — the other gates don't require `data-source` / manifest markup.
 

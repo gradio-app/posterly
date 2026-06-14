@@ -35,7 +35,7 @@ Vendored, **body unmodified** (a provenance header comment was prepended to each
 
 | Path | Origin in ARIS | Purpose |
 |------|----------------|---------|
-| `tools/style_check.py` | `scripts/style_check.py` | style HARD gate (12 rules: token-only colors, no inline `style=`, no gradients, font whitelist, `--fs-*` scale, data-attribute contracts) |
+| `tools/style_check.py` | `scripts/style_check.py` | style HARD gate (13 rules: token-only colors, no inline `style=`, no gradients, font whitelist, `--fs-*` scale, data-attribute contracts, BEM-variant CSS presence) |
 | `tools/asset_check.py` | `scripts/asset_check.py` | real-figure provenance gate (`data-source="paper"` + `FIGURE_MANIFEST.json` sha256 chain + rendered-area bands) |
 | `tools/extract_pdf_figures.py` | `scripts/extract_pdf_figures.py` | pull real figures out of a paper PDF (contact-sheet / auto / crop) — needs PyMuPDF + Pillow |
 | `tools/preprocess_figures.py` | `scripts/preprocess_figures.py` | autocrop / resolution-check extracted crops, keep `FIGURE_MANIFEST.json` honest — needs Pillow |
