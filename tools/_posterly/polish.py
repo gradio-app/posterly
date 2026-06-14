@@ -1088,8 +1088,9 @@ def cmd_polish(args: argparse.Namespace) -> int:
                     f"LOGO/QR-MISMATCH: wide logo '{ascii_safe(lg['src'])}' "
                     f"is {ratio * 100:.0f}% of QR height -- a wide wordmark "
                     f"reads level at {wide_lo * 100:.0f}-"
-                    f"{wide_hi * 100:.0f}%. Adjust --logo-h; see Logo "
-                    f"handling in SKILL.md."
+                    f"{wide_hi * 100:.0f}%. Size it via the logo-wide "
+                    f"class or a tokenized variant; see Logo handling "
+                    f"in SKILL.md."
                 )
         elif abs(lh - qr_h) / qr_h > logo_qr_tol:
             warns.append(

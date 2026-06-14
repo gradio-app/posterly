@@ -163,7 +163,7 @@ The four sanity-check CLIs at a glance:
 - `polish`        — soft visual checks: figure-AR sizing, broken/zero-size images (FIG/BROKEN), typography orphans, space-between fill, card trailing whitespace (CARD/TRAILING — a stretched card padded with blank space).
 - `verify-final`  — `pdfinfo`-based PDF sanity: page count, dimensions, file size.
 
-Three further **optional** gates layer on top — `run_gates.py` (runs them all in one report), `style_check.py` (hard design-token gate), and `asset_check.py` (real-figure provenance) — documented in `SKILL.md`.
+Three further gates layer on top, documented in `SKILL.md`: `run_gates.py` (the default Step-4 loop driver — runs every gate into one report), `style_check.py` (a hard design-token gate, on by default), and `asset_check.py` (real-figure provenance, opt-in via `--manifest`). The four `poster_check.py` CLIs above are the minimal fallback for a non-tokenized / imported template.
 
 Detailed thresholds and tuning flags are in `SKILL.md`. See `templates/README.md` for the template gallery and the conventions a new template must follow.
 

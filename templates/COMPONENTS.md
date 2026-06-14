@@ -313,14 +313,18 @@ Gate name shorthand (DESIGN_FINAL §3–§7):
 - **Allowed variants**: `.vb-venue`, `.vb-year`, `.vb-tag` sub-lines, plus an optional venue
   logo `<img>` placed above them (the "venue-badge logo" of the `logo-row` entry below).
   Affiliation / lab logos use `.logo-slot` instead.
-- **Required data attributes**: none. (If ever replaced by a logo SVG, that SVG needs
-  `data-color-exempt="logo"` — but that is the `.logo-slot` path, not the badge.)
+- **Required data attributes**: none on the text badge. A venue logo `<img>` / inline `<svg>`
+  placed inside `.venue-badge` (above the text) carries `data-color-exempt="logo"` like any
+  logo. (Affiliation / lab logos are the separate `.logo-slot` / `.logo-row` path — right block,
+  not this badge.)
 - **Token usage**: `--accent-deep` (`.vb-venue`), `--text-secondary` (`.vb-year`), `--accent`
   (`.vb-tag`), `--border-soft` (right divider), `--font-sans`. Sizes `--fs-9`/`--fs-5`/`--fs-1`.
 - **Inspected by**: `style` (rule 6 sans, rule 8 token sizes, rule 1 colors as tokens),
   `measure` (header geometry), `preflight`.
-- **Allowed fix operations**: (a), (c) edit venue/year text. Switching to a logo is a (b)
-  component swap into `.logo-slot` (requires the logo contract, see below).
+- **Allowed fix operations**: (a), (c) edit venue/year text. Adding the official venue logo is
+  (b): place an `<img>` (62u; portrait 46u) inside `.venue-badge`, above the text — see
+  "`logo-row` + venue-badge logo" below. (Affiliation / lab logos use `.logo-slot` / `.logo-row`
+  in the right block, not here.)
 - **Anti-patterns**: hardcoding a venue's brand hex inline to "match their logo" (rule 1/2 HARD —
   venue color comes from the opt-in token pack, not inline hex); a *fabricated* venue seal
   instead of an official logo file (the v31 cautionary tale); an inline-SVG venue logo missing
@@ -330,8 +334,11 @@ Gate name shorthand (DESIGN_FINAL §3–§7):
 
 - **Purpose**: Optional lab/affiliation logo in the header right-block. The **only** place an
   off-palette color is allowed, via explicit exemption.
-- **Allowed variants**: a raster `<img>` logo, or an inline `<svg>` logo. Either way the logo
-  must be height-matched to the QR (~85u) so the header does not grow.
+- **Allowed variants**: a raster `<img>` logo, or an inline `<svg>` logo. Either way the single
+  `.logo-slot` logo is height-matched to the QR so the header does not grow (shipped `--logo-h`:
+  85u landscape / 75u portrait). The shorter multi-logo `.logo-row` (68u / 58u) and the
+  venue-badge logo (62u / 46u) are separate containers with their own heights — don't read "85u"
+  as universal.
 - **Required data attributes**: `data-color-exempt="logo"` on the logo element — tells
   `style_check` the off-palette colors inside are sanctioned. It is **load-bearing for an inline
   `<svg>` logo** (its color literals would otherwise trip rule 1, and the inline SVG itself needs
@@ -340,8 +347,10 @@ Gate name shorthand (DESIGN_FINAL §3–§7):
 - **Token usage**: container only (`--border-soft` if framed); the logo's own colors are exempt.
 - **Inspected by**: `style` (rule 1 exemption, rule 2 inline-style exemption for the logo SVG's
   internal markup, rule 11 inline-SVG allowance), `measure` (header geometry).
-- **Allowed fix operations**: (b) add/remove the slot, (g) asset fix (swap logo file). Resizing
-  via height utility, not inline.
+- **Allowed fix operations**: (b) add/remove the slot, (g) asset fix (swap logo file). Resize via
+  the size class (`logo-tall` / `logo-square` / `logo-wide`) or a tokenized variant — never a bare
+  inline `style=` on the slot (style rule 2 flags it; the exemption covers only the
+  `data-color-exempt="logo"` element itself, not the slot wrapper).
 - **Anti-patterns**: a logo *without* `data-color-exempt="logo"` (rule 1 — its colors leak into
   hue clustering, rule 4 fails); an empty `.logo-slot` left in place (adds a stray gap — delete
   the whole div instead); using the exemption to smuggle general decorative color (rule 1 intent
@@ -401,7 +410,7 @@ entry above maps its "Allowed fix operations" to these letters.
 | **(a)** | Change a `:root` **token value** | Token names fixed by IMPLEMENTATION_CONVENTIONS §A; no new tokens, no new hex outside the token block. |
 | **(b)** | Swap / delete / add a **whole component instance** | Component must be in this catalog. |
 | **(c)** | **Content rebalance** | Move a card across columns; add/remove paper-sourced text; adjust a figure width within the AR gate's band. |
-| **(d)** | **Canvas / template reselect** | The upgrade path — pick a different template or retarget the canvas (README §"Retargeting"). |
+| **(d)** | **Canvas / template reselect** | The upgrade path — pick a different template or retarget the canvas (`templates/README.md` "Picking a template"; `SKILL.md` Step 3 and Step 4 "reselect a smaller canvas"). |
 | **(e)** | Global **component stylesheet** change | May reference tokens only; **no new hex**. |
 | **(f)** | Toggle a **predefined variant** | `.figure--wide`, `.card--compact`, `.eqn--large`, `.nowrap`, `.callout.gold`, etc. — must already be in this catalog. |
 | **(g)** | **Asset fix** | Re-crop, swap for a sharper figure from the *same* paper, re-run `preprocess_figures.py`. |
@@ -488,18 +497,21 @@ a human-gated, catalogued, re-run-from-Phase-3 step can extend it.
 - **Anti-patterns**: mixing derived and verbatim values in one column; unlabeled derived data.
 
 ### `keybox--4`
-- **Purpose**: 4-up stat/property tiles (e.g. params / complexity / loss type / guarantee).
-- **Contract**: all four tiles identical styling; numbers must trace to the paper. The
-  `.keybox.keybox--4 { grid-template-columns: repeat(4, 1fr) }` rule MUST be present in the
-  stylesheet — the class alone is inert without it (base `.keybox` is 3-col → a 4-tile strip
-  orphans 3+1). `style` rule 13 fails a `keybox--4` used in HTML with no matching rule.
-- **Anti-patterns**: per-tile colors; tiles restating the banner stats verbatim; a 4-tile strip
-  on the base `.keybox` (no `--4`), or `keybox--4` present but its CSS rule dropped — both orphan
-  the 4th tile into an empty second row.
+The 4-column variant of **keybox** — see **§keybox** above for the full contract (purpose,
+tokens, inspected-by, fix ops). It switches the base 3-col grid to 4 columns for a 4-up
+stat/property strip (params / complexity / loss type / guarantee). The
+`.keybox.keybox--4 { grid-template-columns: repeat(4, 1fr) }` rule MUST exist in the stylesheet,
+or the class is inert and the 4-tile strip orphans 3+1 (`style` rule 13 hard-fails).
+- **Density-specific anti-pattern**: tiles that restate the banner's headline stats verbatim —
+  the strip should add *new* at-a-glance numbers, not echo the banner.
 
 ### `algo`
 - **Purpose**: compact numbered procedure list — **only when the paper itself states an
   explicit algorithm/procedure**. Cite it ("Alg. 1", "the procedure of §4.2").
+- **Inspected by**: `style` (token colors, font/size scale), `measure` (aligns as a card),
+  content audits (Step 1.5 / 6.5 — the steps must be the paper's, not fabricated).
+- **Allowed fix ops**: token edits; step-text rebalance; drop the component if the paper has
+  no explicit algorithm to cite.
 - **Anti-patterns**: INVENTING steps from prose (the v31 poster fabricated a "5 steps per
   batch" algorithm that was not in the paper — this is the cautionary tale).
 
@@ -513,7 +525,7 @@ a human-gated, catalogued, re-run-from-Phase-3 step can extend it.
 ### `logo-row` + venue-badge logo (added 2026-06-05, user-checkpointed)
 - **Purpose**: institution logos in the header right block (beside the QR), and the
   official venue logo above the venue-badge text. Sized to pair with the QR
-  (logo-row 68u, venue logo 52u) — visible from poster distance, never tiny.
+  (logo-row 68u, venue logo 62u; portrait 58u / 46u) — visible from poster distance, never tiny.
 - **Contract**: REAL logo files only (user-provided or official sources) — fabricating
   a seal as inline SVG is forbidden (the v31 cautionary tale). Every logo `<img>` should
   carry `data-color-exempt="logo"` (palette-gate exemption — load-bearing for an inline-SVG

@@ -133,9 +133,11 @@ Once layout is picked, ask once:
 - **Corresponding-author marker**: which author gets `✉`? Any starred (`★`) co-authors?
 - **Items to preserve/exclude**: which sections to drop, any "do not revert" notes.
 
-### Step 1.5 — Content audit (strongly recommended)
+### Step 1.5 — Content audit (mandatory; external reviewer recommended)
 
-Before laying out, the draft must be audited for paper-to-poster fidelity. Past sessions caught real bugs ONLY here — paper said "20× fewer" but the table gave 16×, "fewest trajectories" was an overclaim vs the actual baselines, theorem preconditions were silently dropped. Skip this and you will discover errors only when standing next to the printed poster.
+**When to run it:** this audits a *filled draft*, so do it once you've scaffolded (Step 3) and put real content into `poster.html` — but **before** you sink renders into the Step 4 measure/balance loop. It sits here, numbered with the content steps, because fidelity is a *content* concern, not a layout one: catching a wrong number now costs nothing, catching it after the layout loop wastes every render in between. The same audit repeats on the *final* poster at Step 6.5.
+
+The draft must be audited for paper-to-poster fidelity. Past sessions caught real bugs ONLY here — paper said "20× fewer" but the table gave 16×, "fewest trajectories" was an overclaim vs the actual baselines, theorem preconditions were silently dropped. Skip this and you will discover errors only when standing next to the printed poster.
 
 **How to run it (in order of preference):**
 
@@ -173,7 +175,7 @@ For each paper figure you'll use:
 
    Never embed the `.eps` / `.pdf` directly — it renders blank, caught only late as `polish`'s FIG/BROKEN after a wasted render.
 2. **Autocrop whitespace** with PIL.ImageChops so the figure fills its card.
-3. **Re-export at ≥ 2× the rendered px**. A `200u × 120u` figure print-rendered at 96 ppi → ~756 × 454 px. Source PNGs must be ≥ 1500 × 900 to look crisp at print.
+3. **Re-export at ≥ 2× the rendered px** — the print-quality *target* (the `asset` gate's hard floor is a lower **1.5×**, so a 2× source clears it comfortably). A `200u × 120u` figure print-rendered at 96 ppi → ~756 × 454 px. Source PNGs must be ≥ 1500 × 900 to look crisp at print.
 4. **QR codes**: request at ≥ 2× rendered px (e.g., 480×480 if displayed at ~240 px).
 5. **Logos**: inspect each user-provided logo file before placing it, then pick a size class and chip treatment from the two tables in **Gate E — Header logos** below. Use the same `python` that runs the posterly tools; this snippet needs Pillow (`pip install Pillow` if missing):
 
@@ -435,7 +437,7 @@ Logos live in the header, outside any card or hero panel, so Gates A–D never s
 | `1.4 – 2.5` | Mid wordmark | *(none — default)* |
 | `≥ 2.5` | Wide wordmark (university name banner) | `logo-wide` |
 
-`logo-wide` is **intentionally shorter than the QR** (≈ 68 % of its height) so a long wordmark doesn't out-mass it — that's why the QR-match gate below gives it a band instead of a strict match. The classes are starting defaults, not law: override per poster with inline `style="--logo-h: …; --logo-wmax: …"`, and let the rendered header crop (Step 5) be the final arbiter.
+`logo-wide` is **intentionally shorter than the QR** (≈ 68 % of its height) so a long wordmark doesn't out-mass it — that's why the QR-match gate below gives it a band instead of a strict match. The classes are starting defaults, not law: if a logo needs a height off the three classes, add a **tokenized variant class** for it — not a bare inline `style="--logo-h: …"` on `.logo-slot`, which `style_check` rule 2 flags (the inline-style exemption covers only the `data-color-exempt="logo"` element itself, not the slot wrapper that consumes those vars). Let the rendered header crop (Step 5) be the final arbiter.
 
 **Background (chip).** Decide from the Step 2 logo inspection + the header's own color:
 
@@ -490,7 +492,7 @@ The defaults are calibrated against the size classes, so a logo sized by the rec
 
 ## When to call an external LLM reviewer (three checkpoints)
 
-The skill works fine without one, but a second pair of eyes reliably catches paper-to-poster fidelity bugs you'd otherwise find next to the print station. Three checkpoints, each documented at its home:
+The skill works fine without an *external* reviewer — a self-audit is the mandatory floor (Step 1.5) — but a second pair of eyes reliably catches paper-to-poster fidelity bugs you'd otherwise find next to the print station. Three checkpoints, each documented at its home:
 
 1. **Content critique** — Step 1.5 (claim → evidence audit; the canonical reviewer settings *and* the prompt template live there).
 2. **Theorem & equation pass** — the quick check right after Step 3 (preconditions survived the scaffold; equations actually render).
@@ -512,7 +514,7 @@ tools/
 └── _posterly/             ← internal modules (canvas parser, Playwright + settle, etc.)
 ```
 
-The five `(vendored, ARIS)` tools are layered enhancements documented in **§Enhanced gates & fix discipline** below (license/attribution in `NOTICE.md`); they reuse posterly's own `_posterly` engine. The core flow uses only `poster_check.py` + `render_preview.py`:
+The five `(vendored, ARIS)` tools are documented in **§Enhanced gates & fix discipline** below (license/attribution in `NOTICE.md`); they reuse posterly's own `_posterly` engine. The **minimal fallback** uses only `poster_check.py` + `render_preview.py`:
 
 - `poster_check.py`:
   - `measure` — **hard** alignment gate (column-bottom spread < 5 px, gap-to-footer in [30, 50] px, intercard gap in [12, 50] px inside each column, canvas-fill ∈ [95 %, 101 %] as a coarse diagnostic, and poster bbox aligns to the page within ±2 px — the bbox-alignment check is the authoritative full-canvas requirement).
@@ -525,7 +527,7 @@ All scripts read `@page { size: W H }` from the input HTML so the same code hand
 
 ## Enhanced gates & fix discipline (vendored from ARIS)
 
-These tools and the fix discipline below are vendored from ARIS's `paper-poster-html` (MIT © 2026 wanshuiyin — see `NOTICE.md`). They layer on top of the Step 4 / Step 6 gates and reuse posterly's own `_posterly` engine. All are **optional enhancements** — the core Step 0–7 flow stands on its own.
+These tools and the fix discipline below are vendored from ARIS's `paper-poster-html` (MIT © 2026 wanshuiyin — see `NOTICE.md`). They layer on top of the Step 4 / Step 6 gates and reuse posterly's own `_posterly` engine. For a poster scaffolded from posterly's own templates they are the **default loop, not extras**: `run_gates.py` is the Step 4 driver and `style` is a hard gate every iteration (`asset` stays opt-in via `--manifest`). The bare `poster_check.py` core (preflight / measure / polish / verify-final) is the **fallback** only for a non-tokenized or imported template that can't pass `style` — it is *not* a license to skip `style` on a poster built from these templates.
 
 ### One-shot gate runner — `run_gates.py`
 
@@ -538,7 +540,7 @@ python tools/run_gates.py poster.html --report GATE_REPORT.json
 python tools/run_gates.py poster.html --manifest FIGURE_MANIFEST.json --report GATE_REPORT.json
 ```
 
-Order is fixed: `preflight → style → asset → measure → polish`. The cheap static gates (preflight/style/asset) run before the expensive renders (measure/polish), so a structural or style bug fails fast instead of burning a render. `GATE_REPORT.json` holds every gate's pass/fail + findings — one read tells you the whole fix surface. Child processes run with `sys.executable`, so it uses the same interpreter/venv as posterly. By default `run_gates.py` forwards `--style-disable 4,5` to the style gate (posterly drops the hue-count and gradient design rules — see **§Style HARD gate**); pass `--style-disable ''` to enforce all 13. Plain `poster_check.py measure` still works if you don't adopt the style/asset gates.
+Order is fixed: `preflight → style → asset → measure → polish`. The cheap static gates (preflight/style/asset) run before the expensive renders (measure/polish), so a structural or style bug fails fast instead of burning a render. `GATE_REPORT.json` holds every gate's pass/fail + findings — one read tells you the whole fix surface. Child processes run with `sys.executable`, so it uses the same interpreter/venv as posterly. By default `run_gates.py` forwards `--style-disable 4,5` to the style gate (posterly's default — see **§Style HARD gate** below for what that drops and how to re-enable). Plain `poster_check.py measure` still works if you don't adopt the style/asset gates.
 
 Without `--manifest`, the asset gate is **opt-in** — it is reported `NOT_RUN` and excluded from `overall` (real figures not verified), so a green `overall` means *the gates that ran* passed, not that figures were checked. (This is a posterly fix to the vendored orchestrator — see `NOTICE.md`; upstream silently counted the missing-manifest asset gate as a pass.)
 
@@ -556,11 +558,11 @@ python tools/style_check.py poster.html --disable 4,5   # posterly default; add 
 
 > **Note.** `style_check` assumes a *tokenized* template — a `/* ===== DESIGN TOKENS ===== */ … /* ===== END DESIGN TOKENS ===== */` block, colors via `var(--…)`, sizes via `--fs-*`, no inline `style=` / gradients. posterly's `*_neutral.html` templates **are** tokenized (vendored from ARIS — see `NOTICE.md`), so a poster scaffolded from them passes `style` out of the box. A hand-written or imported non-tokenized template will FAIL `style` until you tokenize it; the other gates (`preflight` / `measure` / `polish`) don't require tokenization. (Note: the older posters under `examples/` predate tokenization and will not pass `style` — they're showcase artifacts, not templates.)
 
-> **Reconciling with the older layout examples.** Several examples in *Step 6 / Visual polish gates* below use inline `style=` — figure widths (`style="width: …"`) and the per-poster logo-size override near the Gate E tables (`style="--logo-h: …; --logo-wmax: …"`). `style_check` (rule 2) forbids inline `style=` **except** on `img[data-source="paper"]` (the `width: NN%` opt-out) and inside the `data-color-exempt="logo"` subtree. So if you adopt `style_check`: express figure widths via the `w-95` / `w-100` utility classes (see `templates/COMPONENTS.md`) or a tokenized component rule; and keep the logo override inside the `data-color-exempt="logo"` subtree (where it's exempt) or move it to a tokenized class — rather than taking the bare inline-`style=` snippets literally under the hard gate.
+> **Reconciling with the older layout examples.** Some examples in *Step 6 / Visual polish gates* below set figure widths with inline `style="width: …"`. `style_check` (rule 2) forbids inline `style=` **except** `style="width: NN%"` on an `img[data-source="paper"]` and anything inside a `data-color-exempt="logo"` element. So if you adopt `style_check`, express figure widths via the `w-95` / `w-100` utility classes (see `templates/COMPONENTS.md`) or a tokenized component rule rather than taking the bare inline-`style=` snippets literally — and size logos by their size class or a tokenized variant (Gate E), never a bare inline height on the slot.
 
 ### Real-figure provenance gate (optional) — `asset_check.py` + figure tools
 
-Step 1–2 already says "use real figures, ≥2× resolution". This gate *enforces* it for the workflow where you want a hard guarantee that every paper figure is genuinely from the paper (not AI-fabricated, not a tiny decorative thumbnail). **Needs the `figures` extra**: `pip install -e ".[figures]"` (PyMuPDF + Pillow).
+Step 1–2 sets a ≥2× resolution *target*; this gate enforces a hard **1.5× floor** (a 2× source clears it comfortably) for the workflow where you want a guarantee that every paper figure is genuinely from the paper (not AI-fabricated, not a tiny decorative thumbnail). **Needs the `figures` extra**: `pip install -e ".[figures]"` (PyMuPDF + Pillow).
 
 1. `python tools/extract_pdf_figures.py paper.pdf --out fig_work/ contact-sheet` → a labelled page grid to read crop bboxes off; then the `auto` (candidate regions) and/or `crop` subcommands at 300–450 DPI (the top-level `--out` goes **before** the subcommand). **A human confirms crop choices** (🚦).
 2. `python tools/preprocess_figures.py fig_work/fig.png --autocrop --manifest FIGURE_MANIFEST.json` → trims white margins, checks resolution, and (with `--manifest`) re-syncs each crop's `natural_px` / `sha256` so the manifest stays honest. Without `--manifest` it autocrops but leaves stale hashes that `asset_check` will then reject.
