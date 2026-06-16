@@ -381,6 +381,39 @@
     top: calc(-1 * var(--u));
   }
 
+  /* Method-overview figure for the banner (banner-figure component,
+     catalogued in COMPONENTS.md). Usually CAPTIONLESS -- the banner text
+     block beside it is the figure's explanation. width:min-content collapses
+     the slot to the IMAGE (a captionless figure's slot IS the image); if a
+     short caption is used it wraps at the image box and can NEVER set the
+     flex-item width; margin-inline centres a block image (text-align does
+     not); overflow-wrap guards a long unbreakable token. Do NOT hand-roll a
+     .fb-fig wrapper or a bare <img class="w-100"> here. */
+  .framework-banner .banner-figure {
+    flex: 0 0 auto;
+    width: min-content;
+    margin: 0;
+    text-align: center;
+  }
+  .framework-banner .banner-figure img {
+    height: calc(120 * var(--u));
+    width: auto;
+    display: block;
+    margin-inline: auto;
+  }
+  .framework-banner .banner-figure figcaption {
+    width: 100%;
+    margin-top: calc(2 * var(--u));
+    font-family: var(--font-sans);
+    font-size: var(--fs-2);
+    line-height: 1.2;
+    color: var(--text-secondary);
+    text-align: center;
+    text-wrap: pretty;
+    overflow-wrap: anywhere;
+  }
+  .framework-banner .banner-figure figcaption strong { color: var(--accent-deep); }
+
   /* =========================================================
      BODY: 4 columns, variable-width hint via fr values
      ========================================================= */
@@ -900,10 +933,18 @@
        Delete this entire <section> if your poster doesn't need a banner.
        (To do so, also remove `auto` from the grid-template-rows above.) -->
   <section class="framework-banner" data-measure-role="banner">
-    <!-- Method overview figure from the paper goes here. Mark it as a paper
-         asset so asset_check + style_check recognize it:
-         <img src="assets/paper_figures/framework.png" data-source="paper"
-              data-asset-id="framework" class="w-100"> -->
+    <!-- OPTIONAL method-overview figure on the left. The banner text block
+         beside it IS its explanation, so it usually needs NO caption. Use the
+         captionless banner-figure component (NOT a bare <img class="w-100"> --
+         the `.framework-banner img { width:auto }` rule wins over .w-100):
+         <figure class="banner-figure">
+           <img src="assets/paper_figures/framework.png" data-source="paper"
+                data-asset-id="framework" alt="Method overview">
+         </figure>
+         A figcaption here just duplicates the banner text and a long one
+         stretches the figure slot (polish: BANNER/IMAGE-SLOT). If you truly
+         need panel labels, bake them into the image or keep them to ONE short
+         <figcaption> line (the component bounds it to the image width). -->
     <div class="fb-text">
       <span class="fb-label">Framework</span>
       &nbsp;<strong>Method name</strong> in one sentence — what it does, what it improves, what's new.

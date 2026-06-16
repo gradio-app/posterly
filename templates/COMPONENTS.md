@@ -168,6 +168,42 @@ Gate name shorthand (DESIGN_FINAL §3–§7):
   `.stage-placeholder` in the final poster (preflight/polish residue); a hero img that is not
   paper-sourced (asset quota + rubric ≤3).
 
+## banner-figure (`.framework-banner > figure.banner-figure`, `landscape_4col` banner only)
+
+- **Purpose**: A method-overview figure inside the optional **framework banner** — the
+  height-sized paper diagram that sits left of the banner text/stats. **Usually captionless**: the
+  banner text block beside it is the figure's explanation, so a figcaption just duplicates it.
+  `width:min-content` collapses the figure slot to the *image* (a captionless figure's slot IS the
+  image — slack 0), and if a short caption *is* used it wraps at the image box and never sets the
+  flex-item width, so the banner body keeps its room. Use this instead of hand-rolling a `.fb-fig`
+  wrapper or a bare `<img class="w-100">` in the banner.
+- **Allowed variants**: none. No `.w-NN` utilities (the `.framework-banner img` `width:auto` rule
+  wins over `.w-NN` anyway), no inline `style=`, no ad-hoc `.fb-fig` / `.banner-img` wrapper. An
+  annotated diagram-left / notes-right banner visual would be a *new* catalogued component
+  (human-checkpoint), not a tweak of this one.
+- **Required data attributes**: the parent `<section class="framework-banner">` keeps
+  `data-measure-role="banner"`. The `<img>` carries the normal paper-figure pair
+  `data-source="paper"` **and** `data-asset-id="<manifest id>"` when the asset gate runs — a pair
+  (rule 10 hard-fails one without the other); add neither if the gate is off.
+- **Token usage**: caption → `--font-sans`, `--fs-2`, `--text-secondary`, `--accent-deep` (caption
+  `<strong>`). No color literals; any image framing references `--border-soft` / `--bg-card`.
+- **Inspected by**: `style` (no inline style, tokenized caption font/color, the
+  data-source/data-asset-id pair), `asset` (counts as a paper figure when manifest-backed),
+  `polish` (**BANNER/IMAGE-SLOT** — fires when the figure slot is much wider than the image: a
+  one-sided dead band, or a long caption stretching the slot), `measure` (indirectly, via banner
+  height).
+- **Allowed fix operations**: (b) add / delete / swap the whole `banner-figure`; (c) shorten or
+  reword the caption from paper-sourced text, or pick a better method-overview asset; (e) global
+  `banner-figure` stylesheet (tokens only); (g) asset fix (re-crop / swap for a sharper figure from
+  the *same* paper).
+- **Anti-patterns**: adding a figcaption that just restates the banner text block (usually
+  redundant — default to no caption); a height-sized `img { width:auto }` in a shrink-to-fit flex
+  item with an **unconstrained caption** (the caption's max-content width becomes the slot width —
+  the BANNER/IMAGE-SLOT failure); relying on `text-align:center` to centre a **block** image (it
+  doesn't — use `margin-inline:auto`); `figcaption { white-space:nowrap }`; `class="w-100"` on a
+  banner image (inert — `.framework-banner img`'s `width:auto` wins); bespoke `.fb-fig` / `.fb-body`
+  CSS not in this catalog.
+
 ## eqn (`.eqn`, optional `.eqn .label`)
 
 - **Purpose**: A display-equation block — MathJax-rendered math with an optional uppercase label

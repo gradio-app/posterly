@@ -92,6 +92,21 @@ DEFAULT_TITLE_MIN_RATIO = 0.45
 # not a hard rule (sizing + layout win; centring is best-effort).
 DEFAULT_TITLE_OFFSET_MAX = 0.06
 
+# Banner image-slot gate (Gate F). A method figure in the optional framework
+# banner whose flex-ITEM ("slot") is much wider than the image itself wastes
+# banner width and steals room from the body text/stats (the banner figure is
+# captionless by default; a needless caption is the usual cause). Two
+# shapes feed one warning: (1) the image is pinned to one side of an over-wide
+# slot -> a big one-sided dead band (the visible "whitespace beside the
+# figure"); (2) the image is centred but a long single-line caption still
+# stretches the slot to the caption's width (the "half-fix" -- adding
+# margin:auto evens the gaps but the caption keeps setting the width). Images
+# narrower/shorter than these floors are inline icons, not method figures, and
+# are skipped. The shipped `banner-figure` component (`width:min-content`)
+# collapses the slot to the image, so a correct banner never trips this.
+DEFAULT_BANNER_SLOT_MIN_PIC_W = 240.0
+DEFAULT_BANNER_SLOT_MIN_PIC_H = 80.0
+
 
 from .textutil import ascii_safe
 
@@ -643,10 +658,73 @@ _POLISH_JS = r"""
     });
   });
 
+  // ---- 9) Framework-banner image slot ----
+  // A captioned method figure in the optional framework banner whose flex
+  // ITEM ("slot") is much wider than the image wastes banner width and steals
+  // room from the body. Anchored on the IMG (not <figure>), so any wrapper
+  // element the agent picks is covered. The "slot" is the banner's DIRECT
+  // child that contains the image -- the box that competes with the body for
+  // banner width; a bare <img> child IS its own slot, so slack==0 and it can
+  // never trip. `caption_like_w` is the widest non-image descendant of the
+  // slot (the caption/text block that may be setting the slot width).
+  const bannerImgs = [];
+  document.querySelectorAll('[data-measure-role="banner"]').forEach(banner => {
+    const br = banner.getBoundingClientRect();
+    banner.querySelectorAll('img').forEach(img => {
+      const ir = img.getBoundingClientRect();
+      if (ir.width <= 0 || ir.height <= 0) return;
+      // Walk up to the banner's direct child (the flex/grid item). If the img
+      // is itself a direct child of the banner, slot === img.
+      let slot = img, p = img.parentElement;
+      while (p && p !== banner) { slot = p; p = p.parentElement; }
+      if (p !== banner) return;  // img not actually under this banner
+      const sr = slot.getBoundingClientRect();
+      // Widest non-image content in the slot = the caption/text block. Exclude
+      // the img and any element that CONTAINS it (those are slot-wide by
+      // construction and would mask the signal).
+      let captionLikeW = 0;
+      slot.querySelectorAll('*').forEach(el => {
+        if (el === img || el.contains(img)) return;
+        const r = el.getBoundingClientRect();
+        if (r.height > 0 && r.width > captionLikeW) captionLikeW = r.width;
+      });
+      // A caption written as BARE text directly in the slot (no <figcaption>)
+      // is invisible to the element scan but can still expand the slot. Measure
+      // text-run rects too and keep the widest.
+      const tw = document.createTreeWalker(slot, NodeFilter.SHOW_TEXT);
+      for (let tn = tw.nextNode(); tn; tn = tw.nextNode()) {
+        if (!tn.nodeValue || !tn.nodeValue.trim()) continue;
+        const rng = document.createRange();
+        rng.selectNodeContents(tn);
+        const rects = rng.getClientRects();
+        for (let i = 0; i < rects.length; i++) {
+          if (rects[i].height > 0 && rects[i].width > captionLikeW) {
+            captionLikeW = rects[i].width;
+          }
+        }
+      }
+      bannerImgs.push({
+        src: img.getAttribute('src') || '',
+        obj_fit: window.getComputedStyle(img).objectFit || '',
+        banner_w: br.width,
+        slot_w: sr.width,
+        slot_is_img: slot === img,
+        off_left: ir.left - sr.left,
+        off_right: sr.right - ir.right,
+        rendered_w: ir.width,
+        rendered_h: ir.height,
+        natural_w: img.naturalWidth || 0,
+        natural_h: img.naturalHeight || 0,
+        caption_like_w: captionLikeW,
+      });
+    });
+  });
+
   return {figures, orphans, cols, cards, flexbr, besideVoids, widows,
           logos, qrs, header_w: headerW, header_cx: headerCx,
           header_content_left: headerContentLeft,
-          header_content_right: headerContentRight, headerBlocks};
+          header_content_right: headerContentRight, headerBlocks,
+          bannerImgs};
 }
 """
 
@@ -1170,6 +1248,92 @@ def cmd_polish(args: argparse.Namespace) -> int:
                     )
                     break
 
+    # ---- Gate F: framework-banner image slot ----
+    # A captioned method figure in the framework banner whose flex-item slot is
+    # much wider than the image wastes banner width and steals room from the
+    # body. Fires on EITHER a one-sided dead band (image pinned to one side) OR
+    # a caption that expands the slot past the image (the half-fix: margin:auto
+    # evens the gaps but a long single-line caption still sets the width).
+    # Anchored on the img; the shipped `banner-figure` (width:min-content)
+    # collapses the slot to the image and never trips it. Gates A/A2 only scan
+    # card+hero images, so banner images are otherwise unchecked.
+    slot_min_pic_w = getattr(
+        args, "banner_slot_min_pic_w", DEFAULT_BANNER_SLOT_MIN_PIC_W)
+    slot_min_pic_h = getattr(
+        args, "banner_slot_min_pic_h", DEFAULT_BANNER_SLOT_MIN_PIC_H)
+    for b in data.get("bannerImgs", []):
+        if b.get("slot_is_img"):
+            continue  # a bare <img> IS its slot -> no over-allocation possible
+        banner_w = float(b.get("banner_w", 0) or 0)
+        slot_w = float(b.get("slot_w", 0) or 0)
+        rw = float(b.get("rendered_w", 0) or 0)
+        rh = float(b.get("rendered_h", 0) or 0)
+        nw = float(b.get("natural_w", 0) or 0)
+        nh = float(b.get("natural_h", 0) or 0)
+        if rw <= 0 or rh <= 0 or banner_w <= 0 or slot_w <= 0:
+            continue
+        # Visible PICTURE width inside the <img> box (object-fit letterbox),
+        # mirroring Gate A: a contain/scale-down/none image leaves internal
+        # voids that belong in the side gaps.
+        if nw > 0 and nh > 0:
+            ar = nw / nh
+        elif rh > 0:
+            ar = rw / rh
+        else:
+            continue
+        obj_fit = str(b.get("obj_fit", "")).strip().lower()
+        if obj_fit in ("contain", "scale-down") and rh > 0 and ar > 0:
+            content_w = min(rw, rh * ar)
+            if obj_fit == "scale-down" and nw > 0:
+                content_w = min(content_w, nw)
+        elif obj_fit == "none" and nw > 0:
+            content_w = min(rw, nw)
+        else:
+            content_w = rw
+        pic_w = content_w
+        if pic_w < slot_min_pic_w or rh < slot_min_pic_h:
+            continue  # inline icon / small mark, not a method figure
+        void = max(0.0, rw - content_w)
+        left_gap = max(0.0, float(b.get("off_left", 0) or 0) + void / 2.0)
+        right_gap = max(0.0, float(b.get("off_right", 0) or 0) + void / 2.0)
+        slack = left_gap + right_gap
+        delta = abs(left_gap - right_gap)
+        cap_w = float(b.get("caption_like_w", 0) or 0)
+
+        overallocated = slack >= max(180.0, 0.035 * banner_w, 0.18 * pic_w)
+        if not overallocated:
+            continue
+        # slack >= 180 here, so the delta/slack ratio is always well-defined.
+        asymmetric = (
+            max(left_gap, right_gap) >= max(140.0, 0.030 * banner_w)
+            and delta >= max(120.0, 0.025 * banner_w, 0.12 * pic_w)
+            and (delta / slack) >= 0.55
+        )
+        caption_expanded = (cap_w >= pic_w * 1.15 and cap_w >= slot_w - 6.0)
+        if not (asymmetric or caption_expanded):
+            continue
+        if asymmetric and caption_expanded:
+            cause = ("the image is pinned to one side AND a long caption is "
+                     "stretching the figure block")
+        elif asymmetric:
+            cause = "the image is pinned to one side of an over-wide block"
+        else:
+            cause = ("a long caption is setting the figure-block width -- the "
+                     "image is centred but the slot still stretches to the "
+                     "caption")
+        warns.append(
+            f"BANNER/IMAGE-SLOT: '{ascii_safe(b.get('src', ''))}' sits in a "
+            f"banner figure slot {slot_w:.0f}px wide while the image is only "
+            f"{pic_w:.0f}px -- {slack:.0f}px of unused width beside it "
+            f"({cause}). The banner text block beside the figure is its "
+            f"explanation, so the figure usually needs NO caption -- drop it. "
+            f"Use the captionless `banner-figure` component (width:min-content "
+            f"collapses the slot to the image; any short caption wraps at the "
+            f"image box and never sets the width; centre a block image with "
+            f"margin-inline:auto, not text-align). See banner-figure in "
+            f"COMPONENTS.md."
+        )
+
     print(f"[polish] {ascii_safe(html_path.name)}")
     print(f"  figures checked     : {len(data.get('figures', []))}")
     print(f"  stat-like elements  : {len(data.get('orphans', []))}")
@@ -1179,6 +1343,7 @@ def cmd_polish(args: argparse.Namespace) -> int:
     print(f"  beside-text floats  : {len(data.get('besideVoids', []))}")
     print(f"  flex/<br> parents   : {len(data.get('flexbr', []))}")
     print(f"  header logos        : {len(data.get('logos', []))}")
+    print(f"  banner images       : {len(data.get('bannerImgs', []))}")
     print(f"  warnings            : {len(warns)}")
     for w in warns:
         print(f"  WARN: {w}")
