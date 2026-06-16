@@ -4,14 +4,18 @@
 The mocked unit tests in ``test_polish_output.py`` feed the Python loop a
 canned ``widows`` list and never run the JS, so the detection itself --
 ``<br>``-segment splitting, per-token ``Range`` measurement, NBSP-as-
-separator tokenising, zero-width wrap-space filtering, and visual-line
-grouping -- is only exercised here against a real headless Chromium.
+separator tokenising, zero-width wrap-space filtering, visual-line grouping,
+and the WIDTH-based runt test -- is only exercised here against a real
+headless Chromium.
 
-Determinism: each "must flag" case ends in a word LONGER than the callout
-width, so it cannot share a line and is stranded alone regardless of small
-font-metric differences across machines (the same robustness trick the
-shipped card-trailing integration test relies on). Skipped when Playwright
-/ Chromium isn't installed.
+Determinism: the gate now flags by the last line's WIDTH (a last line filling
+< 30% of the widest line is a stranded runt), NOT by word count. So the "must
+flag" cases end with a word LONGER than the callout placed SECOND-TO-LAST: it
+overflows its line and forces a SHORT final marker onto a line of its own,
+where the marker fills a tiny fraction of the (penult-width) measure regardless
+of small font-metric differences across machines. The "must not flag" cases
+either fill the last line (a single long word, a wide glued tail) or carry an
+opaque cell on the last line. Skipped when Playwright / Chromium isn't installed.
 """
 from __future__ import annotations
 
@@ -40,8 +44,11 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-# Callout width is pinned narrow; each "must flag" case ends in a word wider
-# than that width, so it is forced alone onto the last visual line.
+# The callout/caption width is pinned narrow. A 38-char word is far wider than
+# that, so wherever it sits it (a) overflows onto a line of its own and (b)
+# pushes whatever follows onto the NEXT line. Used SECOND-TO-LAST, it strands a
+# short final marker that fills a tiny fraction of the measure -> WIDOW.
+_PEN = "supercalifragilisticexpialidociousword."
 _HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8">
 <style>
@@ -55,56 +62,69 @@ _HTML = """<!DOCTYPE html>
   <div data-measure-role="poster">
   <div data-measure-role="column">
     <div class="card" data-measure-role="card">
-      <!-- A: long final word can't share a line -> stranded alone -> WIDOW. -->
-      <div class="callout" id="a">alpha beta supercalifragilisticword.</div>
-      <!-- B: &nbsp;-glued multiword tail -> last line is >1 token -> NO widow
-           (the recommended Gate B fix must not re-trip the gate). -->
-      <div class="callout" id="b">Diffusion policies are expressive but their&nbsp;likelihood&nbsp;is&nbsp;intractable.</div>
-      <!-- C: a single word total -> can't widow -> NO widow. -->
+      <!-- A: long penult strands a SHORT final marker -> tiny last line -> WIDOW. -->
+      <div class="callout" id="a">alpha beta __PEN__ flagA.</div>
+      <!-- B: the recommended fix -- &nbsp; glues the marker UP to the wide
+           penult so the last line is wide -> NO widow (same shape as A, space
+           replaced by &nbsp;). -->
+      <div class="callout" id="b">alpha beta __PEN__&nbsp;noflagB.</div>
+      <!-- C: a single word total -> can't wrap -> NO widow. -->
       <div class="callout" id="c">Short.</div>
-      <!-- D: widow lives in the FIRST <br> segment, NOT the block's last
-           visual line (the original incident shape). Second segment is one
-           token so it is skipped. -->
-      <div class="callout" id="d">alpha beta antidisestablishmentword.<br><strong>Done.</strong></div>
-      <!-- E: trailing inline <svg> -> the opaque cell lands on/after the last
-           text line, so the last judged line is not pure text -> NO widow.
-           (Pre-incident behavior skipped the whole block; same verdict here,
-           different mechanism.) -->
-      <div class="callout" id="e">alpha beta skipmelongwordplease.<svg width="12" height="12"></svg></div>
+      <!-- D: widow lives in the FIRST <br> segment, NOT the block's last visual
+           line (the original incident shape). Second segment is one token so it
+           is skipped. -->
+      <div class="callout" id="d">alpha __PEN__ flagD.<br><strong>Done.</strong></div>
+      <!-- E: trailing inline <svg> (VISIBLE) lands on the last line -> the last
+           line carries an opaque cell -> not judgeable -> NO widow. -->
+      <div class="callout" id="e">alpha __PEN__ flagE.<svg width="12" height="12"></svg></div>
       <!-- F: regression for the eb181286 "one." incident -- inline math EARLY
-           in the text must NOT hide a pure-text lone last word. -->
-      <div class="callout" id="f">draw <mjx-container>K</mjx-container> actions and pick strandedregressionword.</div>
-      <!-- G: a .caption between 220 and 400 chars -- the old 220-char cap hid
+           in the text must NOT hide a pure-text stranded last line. -->
+      <div class="callout" id="f">draw <mjx-container>K</mjx-container> actions __PEN__ flagF.</div>
+      <!-- G: a .caption in the 220-400 char band -- the old 220-char cap hid
            the incident caption (231 chars); display text now caps at 400. -->
       <div class="caption" id="g">The quick brown fox jumps over the lazy dog near the river
            bank while the camera records every motion frame for later offline
            analysis and careful manual review of all seven dynamic environments
-           considered in the study finalstrandedcaptionword.</div>
+           considered in the study __PEN__ flagG.</div>
       <!-- H: TALL opaque cells (display math) must not inflate the line-group
-           tolerance and merge the stranded text line away (Codex MAJOR-1). -->
+           tolerance and merge the stranded line away (Codex MAJOR-1). -->
       <div class="callout" id="h">alpha
            <mjx-container style="display:inline-block;width:10px;height:500px"></mjx-container>
            <mjx-container style="display:inline-block;width:10px;height:500px"></mjx-container>
            <mjx-container style="display:inline-block;width:10px;height:500px"></mjx-container>
            <mjx-container style="display:inline-block;width:10px;height:500px"></mjx-container>
-           beta tallmathstrandedword.</div>
+           beta __PEN__ flagH.</div>
       <!-- I: a <br> INSIDE a table cell must not split the OUTER prose into
            segments and orphan the trailing word (Codex MAJOR-2). -->
       <div class="callout" id="i">alpha
            <table style="display:inline-table;width:20px;height:20px"><tr><td>x<br>y</td></tr></table>
-           tableinnerbrstrandedword.</div>
-      <!-- J: a visibility:hidden trailing opaque paints nothing -- the lone
-           word IS visually stranded and must still flag (Codex MAJOR-3). -->
-      <div class="callout" id="j">alpha beta hiddensvgstrandedword.<svg style="visibility:hidden" width="12" height="12"></svg></div>
+           __PEN__ flagI.</div>
+      <!-- J: a visibility:hidden trailing opaque paints nothing and is NOT
+           recorded as a cell -- the last line stays pure text, so the short
+           marker IS a stranded runt and must still flag (Codex MAJOR-3). -->
+      <div class="callout" id="j">alpha __PEN__ flagJ.<svg style="visibility:hidden" width="12" height="12"></svg></div>
       <!-- K: UNSPACED opaques fuse the surrounding text into one token; the
            token's Range must not smuggle the tall opaque rects in as TEXT
            cells and re-inflate the tolerance (Codex round-2 MAJOR). -->
-      <div class="callout" id="k">alpha<mjx-container style="display:inline-block;width:10px;height:500px;vertical-align:middle"></mjx-container><mjx-container style="display:inline-block;width:10px;height:500px;vertical-align:middle"></mjx-container><mjx-container style="display:inline-block;width:10px;height:500px;vertical-align:middle"></mjx-container><mjx-container style="display:inline-block;width:10px;height:500px;vertical-align:middle"></mjx-container>beta unspacedmathstrandedword.</div>
+      <div class="callout" id="k">alpha<mjx-container style="display:inline-block;width:10px;height:500px;vertical-align:middle"></mjx-container><mjx-container style="display:inline-block;width:10px;height:500px;vertical-align:middle"></mjx-container><mjx-container style="display:inline-block;width:10px;height:500px;vertical-align:middle"></mjx-container><mjx-container style="display:inline-block;width:10px;height:500px;vertical-align:middle"></mjx-container>beta __PEN__ flagK.</div>
+      <!-- L: a SHORT TWO-word last line is still a runt by WIDTH -- the old
+           word-count rule missed this; the width rule must flag it. -->
+      <div class="callout" id="l">alpha __PEN__ is L2.</div>
+      <!-- M: a SINGLE LONG word as the last line FILLS the measure (width ~=
+           the widest line) -> NOT stranded -> NO widow. The old word-count rule
+           wrongly flagged this; the width rule must clear it. -->
+      <div class="callout" id="m">alpha beta solitarylongwordfillingtheentirelinewidth.</div>
+      <!-- N: a WIDE inline opaque (600px svg) on an earlier line must NOT
+           inflate the measure -- the text last line fills the TEXT measure and
+           is not a runt. With the buggy all-cell measure (600px) the last line
+           reads as 18% and false-warns; with the text-only measure it is 100%
+           and clears (Codex MAJOR). -->
+      <div class="callout" id="n">tiny text <svg width="600" height="10"></svg> noflagN.</div>
     </div>
   </div>
   </div>
 </body></html>
-"""
+""".replace("__PEN__", _PEN)
 
 
 def _args(html) -> argparse.Namespace:
@@ -124,25 +144,27 @@ def test_widow_geometry_end_to_end(tmp_path, capsys) -> None:
     combined = "".join(capsys.readouterr())
 
     assert rc == 0                                  # soft gate, warn-only
-    # A (real widow), D (first-segment widow), F (math early in text),
-    # G (caption in the 220-400 char band), H (tall opaque vs tolerance),
-    # I (<br> inside table), J (hidden trailing svg), K (unspaced-math token
-    # Range) flag; B/C/E do not.
-    assert "prose widows        : 8" in combined
-    assert "supercalifragilisticword." in combined       # A
-    assert "antidisestablishmentword." in combined       # D first segment
-    # B: an &nbsp;-glued tail is multi-token -> must NOT flag.
-    assert "intractable." not in combined
-    # E: opaque <svg> sits on/after the last text line -> not judgeable -> no flag.
-    assert "skipmelongwordplease." not in combined
-    # F: inline math EARLY must not hide a pure-text lone last word (the
-    # eb181286 "one." incident).
-    assert "strandedregressionword." in combined
-    # G: display-text cap is 400, not 220 -- the long caption is measured.
-    assert "finalstrandedcaptionword." in combined
-    # H/I/J/K: Codex-audit regressions (tolerance skew / inner <br> /
-    # hidden svg / unspaced-math token Range).
-    assert "tallmathstrandedword." in combined
-    assert "tableinnerbrstrandedword." in combined
-    assert "hiddensvgstrandedword." in combined
-    assert "unspacedmathstrandedword." in combined
+    # Flag: A (basic runt), D (first-segment runt), F (math early), G (caption
+    # in the 220-400 band), H (tall opaque vs tolerance), I (<br> inside table),
+    # J (hidden trailing svg stays pure text), K (unspaced-math token Range),
+    # L (short TWO-word last line). Nine in all.
+    assert "prose widows        : 9" in combined
+    assert "flagA." in combined                            # A
+    assert "flagD." in combined                            # D first segment
+    assert "flagF." in combined                            # F math early
+    assert "flagG." in combined                            # G caption cap 400
+    assert "flagH." in combined                            # H tall opaque
+    assert "flagI." in combined                            # I <br> in table
+    assert "flagJ." in combined                            # J hidden svg
+    assert "flagK." in combined                            # K unspaced math
+    assert "is L2." in combined                            # L two-word runt
+    # Do NOT flag:
+    # B: &nbsp; glues the marker to the wide penult -> wide last line.
+    assert "noflagB." not in combined
+    # E: a VISIBLE opaque on the last line -> not judgeable.
+    assert "flagE." not in combined
+    # M: a single long word fills the line (width ~= measure) -> not stranded.
+    assert "solitarylongword" not in combined
+    # N: a wide inline opaque must not inflate the measure -> the text last line
+    # fills the TEXT measure and is not a runt (guards the Codex MAJOR fix).
+    assert "noflagN." not in combined

@@ -792,15 +792,16 @@ def test_logo_args_missing_fall_back_to_defaults(
 # ---- Gate B (prose widow) report layer -------------------------------------
 # These mock the _POLISH_JS result (`widows[]`) and only exercise the Python
 # reporting + summary + --strict wiring. The browser-side detection geometry
-# is covered separately in test_widow_integration.py (Chromium-gated).
+# (now WIDTH-based -- `frac` is the last line's fill %) is covered separately
+# in test_widow_integration.py (Chromium-gated).
 
-def test_widow_warns_on_single_word_last_line(
+def test_widow_warns_on_runt_last_line(
     tmp_path, monkeypatch, capsys
 ) -> None:
     data = {
         "figures": [], "orphans": [], "cols": [],
         "widows": [
-            {"tag": "div", "cls": "callout", "word": "policies.",
+            {"tag": "div", "cls": "callout", "word": "policies.", "frac": 12,
              "lines": 2,
              "text": "Online MARL predominantly uses unimodal Gaussian"
                      " policies."},
@@ -810,6 +811,7 @@ def test_widow_warns_on_single_word_last_line(
     combined.encode("ascii")                       # no Unicode leak
     assert "WIDOW" in combined
     assert "policies." in combined
+    assert "12%" in combined                       # the fill fraction is reported
     assert "prose widows        : 1" in combined
     assert rc == 0                                 # soft: warn-only
 
@@ -817,7 +819,7 @@ def test_widow_warns_on_single_word_last_line(
 def test_widow_strict_fails_and_empty_is_clean(
     tmp_path, monkeypatch, capsys
 ) -> None:
-    widow = {"tag": "div", "cls": "callout", "word": "alone.",
+    widow = {"tag": "div", "cls": "callout", "word": "alone.", "frac": 9,
              "lines": 2, "text": "a fragment left alone."}
     # --strict: a widow must fail the gate.
     combined, rc = _run(

@@ -13,9 +13,11 @@ Three gates the hard alignment gate cannot see:
     ``.headline-num`` that end with a known orphan-prone glyph but
     lack ``white-space: nowrap``. (2) ``WIDOW``: a ``.callout`` /
     ``.body-text`` / ``.caption`` / ``.section-title`` (or a ``<br>``
-    segment of one) that wraps so its last visual line holds a single
-    word -- measured by counting visible tokens per visual line, with
-    ``&nbsp;``-glued tails counted as multiple words.
+    segment of one) that wraps so its last visual line is a stranded
+    runt -- filling less than 30% of the widest line. Judged by the last
+    line's WIDTH as a fraction of the measure (not word count), so a short
+    two-word tail flags and a single long word filling the line does not;
+    an ``&nbsp;``-glued tail widens the last line above the threshold.
   - **Gate C: space-between fill.** ``justify-content: space-between``
     on a column with one short card produces a giant whitespace gap
     that reads as "this column ran out of things to say". Detected
@@ -478,17 +480,18 @@ _POLISH_JS = r"""
   });
 
   // ---- 8) Prose widows: a wrapped text block whose LAST visual line is a
-  //         SINGLE word. `measure` checks card bottoms; section 2's orphan
-  //         scan only sees a trailing GLYPH on a stat/num element. Neither
-  //         sees a `.callout`/`.body-text`/`.caption`/`.section-title` that
-  //         wraps to a one-word last line -- the artefact SKILL.md Gate B
-  //         forbids. We count visible TOKENS on each `<br>`-delimited
-  //         segment's last visual line (token count, not whitespace presence
-  //         -- a collapsed wrap-space renders a zero-width rect on the next
-  //         line and would mask a real widow). Robust to inline
-  //         <strong>/<code> splitting a word's rects, to `text-align:
-  //         justify`, and to sub-pixel / mixed-font-size line tops.
+  //         stranded RUNT -- it fills less than RUNT_FRAC of the typeset
+  //         measure. `measure` checks card bottoms; section 2's orphan scan
+  //         only sees a trailing GLYPH on a stat/num element. Neither sees a
+  //         `.callout`/`.body-text`/`.caption`/`.section-title` that wraps to
+  //         a short last line -- the artefact SKILL.md Gate B forbids. We
+  //         judge by the last line's WIDTH as a fraction of the widest line
+  //         (NOT word count): a short two-word tail is as ugly as a one-word
+  //         one, while a single long word that fills the line is not stranded.
+  //         Robust to inline <strong>/<code> splitting a word's rects, to
+  //         `text-align: justify`, and to sub-pixel / mixed-font-size line tops.
   const widows = [];
+  const RUNT_FRAC = 0.30;   // last line < 30% of the measure = stranded runt
   const WIDOW_SEL = '.callout, .body-text, .caption, .section-title,'
                   + ' .card p, .card li';
   document.querySelectorAll(WIDOW_SEL).forEach(el => {
@@ -507,11 +510,11 @@ _POLISH_JS = r"""
     // blanket skip -- the eb181286 "one." incident). They join the line model
     // as OPAQUE cells: their text (if any) stays out of the token stream, but
     // their rects vote in line grouping, and a last line that itself carries
-    // opaque content is skipped (its "word count" would be meaningless).
+    // opaque content is skipped (its width as a "runt" would be meaningless).
     const OPAQUE = 'mjx-container, .MathJax, math, img, svg, canvas, table';
     // Display text (.caption / .callout) gets a higher length cap than running
-    // prose: a one-word last line under a figure is prominent even in a long
-    // caption, and the 220-char cap was exactly why the incident caption
+    // prose: a short stranded last line under a figure is prominent even in a
+    // long caption, and the 220-char cap was exactly why the incident caption
     // (231 chars) was never measured.
     const cap = el.matches('.caption, .callout') ? 400 : 220;
 
@@ -598,13 +601,14 @@ _POLISH_JS = r"""
       // Each VISIBLE rect becomes a line CELL carrying its token index, so a
       // long token that itself wraps across two lines (break-word / hyphenation)
       // contributes a cell to BOTH lines instead of collapsing the line model.
-      const cells = [];                                       // {cy, h, ti}
+      const cells = [];                                       // {cy, h, ti, l, r}
       for (let ti = 0; ti < toks.length; ti++) {
         const rects = rectsFor(toks[ti].s, toks[ti].e);
         for (let i = 0; i < rects.length; i++) {
           const r = rects[i];
           if (r.width <= 0.5 || r.height <= 0.5) continue;    // drop zero-width wrap-space artefacts
-          cells.push({cy: (r.top + r.bottom) / 2, h: r.height, ti: ti});
+          cells.push({cy: (r.top + r.bottom) / 2, h: r.height, ti: ti,
+                      l: r.left, r: r.right});
         }
       }
       // Opaque cells (ti = -1): vote in line grouping, mark their line, but
@@ -614,7 +618,8 @@ _POLISH_JS = r"""
         for (let i = 0; i < rects.length; i++) {
           const r = rects[i];
           if (r.width <= 0.5 || r.height <= 0.5) continue;
-          cells.push({cy: (r.top + r.bottom) / 2, h: r.height, ti: -1});
+          cells.push({cy: (r.top + r.bottom) / 2, h: r.height, ti: -1,
+                      l: r.left, r: r.right});
         }
       }
       if (cells.length < 2) return;
@@ -637,21 +642,46 @@ _POLISH_JS = r"""
           line.n += 1;
           line.cy += (c.cy - line.cy) / line.n;
         } else {
-          line = {cy: c.cy, n: 1, tis: new Set(), op: false};
+          line = {cy: c.cy, n: 1, tis: new Set(), op: false,
+                  lo: Infinity, hi: -Infinity};
           lines.push(line);
         }
-        if (c.ti >= 0) line.tis.add(c.ti); else line.op = true;
+        // Only TEXT cells set the line's measured extent: an inline opaque
+        // (display math / figure / table) wider than the prose must NOT inflate
+        // the `measure` and make a normal text last line look like a runt
+        // (Codex MAJOR). Opaque cells still vote in grouping (via cy) above and
+        // mark the line opaque here.
+        if (c.ti >= 0) {
+          line.tis.add(c.ti);
+          if (c.l < line.lo) line.lo = c.l;                   // text L/R extent
+          if (c.r > line.hi) line.hi = c.r;                   // of the visual line
+        } else {
+          line.op = true;
+        }
       }
       if (lines.length < 2) return;                           // single visual line: nothing to widow
       const last = lines[lines.length - 1];
-      // A last line carrying opaque content (math/figure) is not judgeable as
-      // a one-WORD line -- skip it; pure-text last lines are always judged.
-      if (last.tis.size === 1 && !last.op) {
-        const ti = last.tis.values().next().value;
+      // A last line carrying opaque content (math/figure) is OUTSIDE this
+      // prose-runt contract -- a lone trailing equation/figure is intentional
+      // content, not a stranded word, so judging it by text width would be
+      // ambiguous (and risk false-flagging deliberate trailing math). Skip it;
+      // pure-text last lines are always judged.
+      if (last.op) return;
+      // WIDTH-based runt test (replaces the old "exactly one token" rule). The
+      // MEASURE is the widest typeset line; a last line filling less than
+      // RUNT_FRAC of it is a stranded runt -- regardless of word COUNT. This
+      // catches a SHORT two-word tail ("= OMAD-only.") the token rule missed,
+      // and clears a SINGLE long word that fills the line (width ~= measure)
+      // which the token rule wrongly flagged.
+      const measure = Math.max(...lines.map(l => l.hi - l.lo));
+      const lastW = last.hi - last.lo;
+      if (measure > 0 && (lastW / measure) < RUNT_FRAC) {
+        const ord = Array.from(last.tis).sort((a, b) => a - b);
         widows.push({
           tag: el.tagName.toLowerCase(),
           cls: el.className || '',
-          word: String(toks[ti].t).slice(0, 32),
+          frac: Math.round(lastW / measure * 100),
+          word: ord.map(ti => toks[ti].t).join(' ').slice(0, 40),
           lines: lines.length,
           text: (norm.length > 60) ? ('...' + norm.slice(-57)) : norm,
         });
@@ -1042,20 +1072,23 @@ def cmd_polish(args: argparse.Namespace) -> int:
             f"before the trailing glyph."
         )
 
-    # ---- Gate B (prose): single-word last line in a wrapped text block ----
+    # ---- Gate B (prose): a stranded RUNT last line (width-based) ----
     # The wrap-geometry sibling of the stat/num orphan above: a `.callout` /
     # `.body-text` / `.caption` / `.section-title` (or a `<br>`-delimited
-    # segment of one) whose last visual line holds ONE word. SKILL.md Gate B
-    # forbids this; the stat/num scan can't see it. An &nbsp;-glued tail is
-    # >1 token by construction, so the recommended fix never re-trips this.
+    # segment of one) whose last visual line fills < ~30% of the typeset
+    # measure. Judged by WIDTH, not word count, so a short TWO-word tail flags
+    # while a single LONG word that fills the line does not. SKILL.md Gate B
+    # forbids this; the stat/num scan can't see it. Gluing the last two tokens
+    # with &nbsp; pulls the prior word down onto the last line and widens it
+    # above the threshold, so the recommended fix still clears the gate.
     for w in data.get("widows", []):
         warns.append(
             f"WIDOW: <{ascii_safe(w['tag'])} class='{ascii_safe(w['cls'])}'> "
-            f"wraps to a last line holding a SINGLE word "
-            f"('{ascii_safe(w['word'])}'), a one-word last line (SKILL.md "
-            f"Gate B). Glue the last two tokens with &nbsp; or reword so the "
-            f"break falls at a phrase boundary. Context: "
-            f"'{ascii_safe(w['text'])}'."
+            f"wraps to a stranded last line that fills only "
+            f"{int(w['frac'])}% of the text width ('{ascii_safe(w['word'])}'), "
+            f"a runt (SKILL.md Gate B). Pull a word down -- glue the last two "
+            f"tokens with &nbsp;, or reword so the last line carries more of "
+            f"the measure. Context: '{ascii_safe(w['text'])}'."
         )
 
     # ---- Gate C: space-between fill ----
