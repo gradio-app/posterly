@@ -374,7 +374,13 @@ Gate name shorthand (DESIGN_FINAL §3–§7):
   `.logo-slot` logo is height-matched to the QR so the header does not grow (shipped `--logo-h`:
   85u landscape / 75u portrait). The shorter multi-logo `.logo-row` (68u / 58u) and the
   venue-badge logo (62u / 46u) are separate containers with their own heights — don't read "85u"
-  as universal.
+  as universal. **Multi-logo equal-width stack:** add `logo-stack` to the `.logo-row`
+  (`<div class="logo-row logo-stack">`) to normalize the logos by **width** and stack them
+  vertically (left-aligned) instead of height-matching in a row — the right choice when two **wide
+  wordmarks** (AR ≳ 2, not a square seal or tall mark — equal width would blow those up) of
+  different aspect ratio read unbalanced side by side (don't also apply the height-based
+  `logo-wide` / `logo-tall` / `logo-square` classes). A `logo-stack` row is exempt from the
+  LOGO/QR-MISMATCH gate (aligned by width, not QR height).
 - **Required data attributes**: `data-color-exempt="logo"` on the logo element — tells
   `style_check` the off-palette colors inside are sanctioned. It is **load-bearing for an inline
   `<svg>` logo** (its color literals would otherwise trip rule 1, and the inline SVG itself needs
@@ -390,7 +396,13 @@ Gate name shorthand (DESIGN_FINAL §3–§7):
 - **Anti-patterns**: a logo *without* `data-color-exempt="logo"` (rule 1 — its colors leak into
   hue clustering, rule 4 fails); an empty `.logo-slot` left in place (adds a stray gap — delete
   the whole div instead); using the exemption to smuggle general decorative color (rule 1 intent
-  — exemption is for the logo/seal only).
+  — exemption is for the logo/seal only); pairing a dense institutional **lockup** (seal + two or
+  three lines of institution name) with a clean two-element corporate **wordmark** at the same
+  height — the bounding boxes match but the lockup's content reads tiny and crammed next to the
+  bold wordmark. The affiliation text line already prints the names, so prefer each logo's
+  simplest **mark/wordmark** form (not the full lockup) when it exists, or normalize equal-width
+  with `logo-stack`; this optical imbalance is a **selection/layout judgment, not a gate** (the
+  boxes are already balanced, so `polish` cannot see it).
 
 ## footer (`.footer`, role `footer`)
 

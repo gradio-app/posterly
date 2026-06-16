@@ -308,6 +308,14 @@
     font-family: var(--font-sans); font-weight: 600; font-size: var(--fs-1);
     color: var(--text-secondary); text-align: center; line-height: 1.15;
   }
+  /* logo-stack variant: WIDE WORDMARKS (AR >= ~2) normalized to EQUAL WIDTH
+     and stacked vertically, left-aligned. Use when two wide wordmarks of
+     different aspect ratio read unbalanced height-matched in a row (equal
+     width lets the less-wide mark grow taller and aligns a clean block).
+     NOT for a square seal or tall mark (equal width blows it up — keep those
+     height-matched). Do NOT also apply the logo-wide/tall/square classes. */
+  .logo-row.logo-stack { flex-direction: column; align-items: flex-start; gap: calc(8 * var(--u)); }
+  .logo-row.logo-stack img { width: calc(170 * var(--u)); height: auto; }
   /* venue badge may carry the official venue logo above its text line */
   .venue-badge img { height: calc(62 * var(--u)); width: auto; display: block; margin: 0 auto calc(2 * var(--u)); }
   .venue-badge .vb-title { font-family: var(--font-sans); font-weight: 800; font-size: var(--fs-5); color: var(--accent-deep); letter-spacing: 0.5px; }

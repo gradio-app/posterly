@@ -159,6 +159,35 @@ def test_healthy_header_is_silent(tmp_path, capsys) -> None:
     assert "HEADER/TITLE-SQUEEZED" not in combined
 
 
+def test_logo_stack_exempt_from_qr_match(tmp_path, capsys) -> None:
+    """Two wordmarks in a ``.logo-row.logo-stack`` are normalized by WIDTH and
+    intentionally NOT QR-height-matched: 60px and 110px tall vs an 85px QR are
+    both >15% off, yet the width-normalized stack must NOT fire
+    LOGO/QR-MISMATCH. A 404'd logo in the same stack still fires LOGO/BROKEN --
+    the exemption is scoped to the QR height match, not the broken/width
+    checks."""
+    slots = f"""
+      <div class="logo-slot"><div class="logo-row logo-stack">
+        <img src="{_SVG}" style="width:170px;height:60px">
+        <img src="{_SVG}" style="width:170px;height:110px">
+        <img src="stack-missing.png" style="width:170px;height:80px">
+      </div></div>
+    """
+    poster = tmp_path / "poster.html"
+    poster.write_text(
+        _HEAD.format(venue=_TEXT_VENUE, slots=slots, body="", svg=_SVG),
+        encoding="utf-8")
+
+    rc = _polish.cmd_polish(_args(poster))
+    combined = "".join(capsys.readouterr())
+
+    assert rc == 0
+    assert "header logos        : 3" in combined
+    assert "LOGO/QR-MISMATCH" not in combined        # width-normalized stack
+    assert "LOGO/BROKEN" in combined                 # broken check still runs
+    assert "stack-missing.png" in combined
+
+
 def _args_off(html) -> argparse.Namespace:
     a = _args(html)
     a.title_offset_max = 0.06

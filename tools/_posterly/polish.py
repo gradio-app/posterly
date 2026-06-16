@@ -389,6 +389,7 @@ _POLISH_JS = r"""
           natural_h: img.naturalHeight || 0,
           slot_classes: slot ? (slot.className || '') : '',
           venue: !!img.closest('.venue-badge'),
+          stacked: !!img.closest('.logo-row.logo-stack'),
           has_chip: !!img.closest('.logo-chip'),
         });
       });
@@ -1154,10 +1155,11 @@ def cmd_polish(args: argparse.Namespace) -> int:
                 f"Set a size class on the .logo-slot (logo-wide caps a "
                 f"wordmark); see Logo handling in SKILL.md."
             )
-        # The venue badge sits left of the title at its own scale -- only
-        # the broken/width checks apply; QR height match is a right-block
-        # rule.
-        if lg.get("venue") or qr_h <= 0 or lh <= 0:
+        # The venue badge sits left of the title at its own scale, and a
+        # logo-stack is normalized by WIDTH (intentionally NOT QR-height-
+        # matched) -- for both, only the broken/width checks above apply;
+        # the QR height match is a height-matched-row rule.
+        if lg.get("venue") or lg.get("stacked") or qr_h <= 0 or lh <= 0:
             continue
         if "logo-wide" in str(lg.get("slot_classes", "")):
             ratio = lh / qr_h
