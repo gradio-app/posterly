@@ -499,7 +499,7 @@ _POLISH_JS = r"""
     // candidate (a .callout wrapping a <p class="body-text">), skip it -- the
     // descendant is scanned on its own, so we never double-report one widow.
     if (el.querySelector(WIDOW_SEL)) return;
-    // A gallery-strip--vrail rail title is a DELIBERATELY narrow stacked column
+    // A vrail rail title is a DELIBERATELY narrow stacked column
     // (each word on its own horizontal line, an over-long word broken with a soft
     // hyphen at a syllable boundary the AGENT judges). Its short last line is
     // intentional, not a runt -- where to break is an authoring judgment the agent
