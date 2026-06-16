@@ -128,7 +128,7 @@ Gate name shorthand (DESIGN_FINAL §3–§7):
     `.w-NN` utility class when the value lands on a 5% step.
 - **Token usage**: `.figure img` border → `--border-soft`; `.caption` → `--text-secondary`,
   `--accent-deep` (caption `<strong>`); caption font-size `--fs-3`/`--fs-2`.
-- **Inspected by**: `asset` (≥2 paper figures, per-figure area **1.5–13%** body, total **12–28%**
+- **Inspected by**: `asset` (≥2 paper figures, per-figure area **≥1.5% of poster** floor / **≤13% of body** cap, total **12–28%**
   body [warn >24%, target ~14–22%; `--hero` raises the per-figure cap to 42%], natural_px ≥1.5×
   rendered, manifest fields + sha256 — an *oversized* figure hard-fails too), `polish` (figure AR sizing:
   FIG/WIDE / FIG/SQUARE / FIG/TALL / FIG/BROKEN), `style` (rule 10 contract attrs; rule 4
@@ -674,23 +674,30 @@ or the class is inert and the 4-tile strip orphans 3+1 (`style` rule 13 hard-fai
   quota paper figures** — so they carry **no `data-source` / `data-asset-id`** and stay invisible
   to the `asset` gate. Do **not** mark them `data-source="paper"` to make them "count": a thumbnail
   this small can never satisfy the per-figure area floor (an env icon renders at ~0.25% of the
-  poster, a frame strip ~0.88% — both far under the 1.5% floor), and marking eight of them also
-  over-inflates the total-figure-area band, flipping the asset gate from PASS to FAIL. A genuine
-  result/method figure that *should* count belongs in a **figure-card**, not here.
+  poster, a frame strip ~0.88% — both far under the **1.5%-of-poster floor**, which hard-fails each
+  one). Marking eight of them also pushes total paper-image area past the **24% warn line** (~27%) —
+  but that is only a soft warning; the hard PASS→FAIL flip is the per-thumbnail floor failures, not
+  the total. A genuine result/method figure that *should* count belongs in a **figure-card**, not here.
 - **Token usage**: `--bg-emphasis` (flat strip bg, de-gradient per rule 5), `--border-soft`
   (border + image frame), `--accent` (left bar + `.num` circle), `--accent-deep` (title),
   `--font-sans` (title + labels), `--text-secondary` (labels / optional subtitle). Sizes
   `--fs-6` (title) / `--fs-1` (labels).
 - **Inspected by**: `measure` (footer-gap band, full-width span), `style` (rule 5 flat bg, rule 6
-  fonts), `polish` (FIG/* sizing by aspect ratio). **Not** inspected by `asset` — with no
-  `data-source`, the thumbnails are invisible to the paper-figure gate (provenance + area quota).
+  fonts), `preflight` (local `src` exists; remote `src` warns). **Not** inspected by `asset` (no
+  `data-source` → invisible to the provenance + area gate) and **not** size-checked by `polish` —
+  its FIG/* aspect scan only walks `card` / `hero` images (banner images have a separate
+  BANNER/IMAGE-SLOT check), so a `footer-strip` thumbnail is outside both paths and is bounded only
+  by the recipe's own `gs-item img` height (33u, or 52u under `vrail`). Keep that height.
 - **Allowed fix ops**: (b) add/remove the whole strip, swap / re-crop a thumbnail, toggle
   `vrail`, rebalance figure count / height, edit labels.
 - **Anti-patterns**: a `linear-gradient` strip bg (rule 5); **marking the thumbnails
   `data-source="paper"`** (they hard-fail the asset area floor and flip the gate to FAIL — see
-  *Required data attributes*); inventing example images the work does not contain — since `asset`
-  no longer guards these, that honesty is **on you (the agent)**: use only genuine task /
-  environment images from the paper, never fabricated or stock art.
+  *Required data attributes*); **smuggling a large result/method figure into a `gallery-strip`** —
+  no gate bounds these images (`asset` can't see them, `polish` FIG/* skips `footer-strip`), so a
+  full-size figure here escapes the area + provenance checks it owes: keep them thumbnails and put
+  any countable figure in a **figure-card**; inventing example images the work does not contain —
+  since `asset` no longer guards these, that honesty is **on you (the agent)**: use only genuine
+  task / environment images from the paper, never fabricated or stock art.
 - **Recipe** (the strip is not shipped in the templates — copy and adapt, as you would author any
   footer-strip; all colors via tokens; pair with the `vrail` modifier above for the rail title):
   ```css
