@@ -190,6 +190,11 @@ def test_logo_stack_exempt_from_qr_match(tmp_path, capsys) -> None:
 
 def _args_off(html) -> argparse.Namespace:
     a = _args(html)
+    # Explicit threshold for these MECHANICS tests, intentionally NOT the shipped
+    # 3% default: 0.06 brackets cleanly between the ~3% balanced-header residual
+    # (test_header_overflow_warns) and the 14% unequal-side case
+    # (test_title_offcenter_warns), so each case sits clear of the boundary. The
+    # shipped default lives in DEFAULT_TITLE_OFFSET_MAX, not here.
     a.title_offset_max = 0.06
     return a
 

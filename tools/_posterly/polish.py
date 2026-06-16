@@ -92,7 +92,7 @@ DEFAULT_TITLE_MIN_RATIO = 0.45
 # title-block centre is off the header centre by more than this fraction of
 # header width -- a nudge to rebalance the header WHEN logo/QR sizing allows,
 # not a hard rule (sizing + layout win; centring is best-effort).
-DEFAULT_TITLE_OFFSET_MAX = 0.06
+DEFAULT_TITLE_OFFSET_MAX = 0.03
 
 # Banner image-slot gate (Gate F). A method figure in the optional framework
 # banner whose flex-ITEM ("slot") is much wider than the image itself wastes
