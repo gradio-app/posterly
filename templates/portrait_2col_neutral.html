@@ -34,7 +34,7 @@
     2. Edit the DESIGN TOKENS in `:root` (or swap a tokens/*.json palette) —
        the token block is the ONLY place color/font-size literals may live.
     3. Replace TODO content placeholders (search for "TODO").
-    4. Run `python3 tools/poster_check.py measure poster.html` to align columns.
+    4. Run `python3 tools/run_gates.py poster.html` (the default driver: preflight -> style -> measure -> polish) to align columns and check style/structure.
     5. Run `python3 tools/render_preview.py poster.html` to produce the PDF.
   STYLE CONTRACT (ARIS source gate, tools/style_check.py):
     - NO inline `style=` attributes anywhere in the markup. Use the utility
@@ -143,7 +143,7 @@
 
     /* Shadows & watermark ink — tokenized so rules 1/3 stay literal-free
        (the faint radial page tint is the ONE allowed literal outside this
-       block; rule 5 validates it). */
+       block; rule 5 validates it WHEN ENABLED -- the style gate ships with rules 4-5 off). */
     --shadow-screen: 0 0 60px rgba(0, 0, 0, 0.5);
     --shadow-card: 0 calc(2 * var(--u)) calc(6 * var(--u)) rgba(45, 95, 139, 0.05);
     --ornament-ink: rgba(45, 95, 139, 0.06);
@@ -171,7 +171,7 @@
     width: calc(610 * var(--u));
     height: calc(914 * var(--u));
     background: var(--bg-page);
-    /* The only gradient allowed by the style gate: a low-alpha radial tint
+    /* The only gradient the catalog sanctions (rule 5 enforces it only when re-enabled): a low-alpha radial tint
        (every color stop alpha ≤ 0.06). NOT a linear-gradient. */
     background-image:
       radial-gradient(ellipse at top left,    rgba(45, 95, 139, 0.06), transparent 40%),
@@ -309,7 +309,23 @@
        <div class="logo-slot"><img src="assets/logos/lab.png" alt="Lab"
             data-color-exempt="logo"></div>
      Inline-SVG logos carry the attribute on the <svg> element itself. */
-  .logo-slot img { height: calc(75 * var(--u)); width: auto; display: block; }
+  .logo-slot img { height: calc(75 * var(--u)); width: auto; max-width: calc(300 * var(--u)); object-fit: contain; display: block; }
+  /* Logo size classes on .logo-slot -- pick from the file's aspect ratio (SKILL.md Gate E).
+     tall/square sit at the QR-matched slot height; wide is intentionally shorter (~68% of the
+     QR) and width-capped so a long wordmark doesn't out-mass the title. Do NOT combine these
+     with logo-stack (that row is width-normalized, below). */
+  .logo-slot.logo-tall img,
+  .logo-slot.logo-square img { height: calc(75 * var(--u)); }
+  .logo-slot.logo-wide img  { height: calc(51 * var(--u)); max-width: calc(125 * var(--u)); }   /* <22% of the ~586u portrait header */
+  /* Logo chip: a solid backing that keeps a transparent / edge-white logo legible on a
+     colored/dark header (white chip) or a light header (.logo-chip-dark); the padding + radius
+     fold a stray white box into a deliberate rounded tile (SKILL.md Gate E, Background). */
+  .logo-chip {
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--bg-card); border-radius: calc(3 * var(--u));
+    padding: calc(3 * var(--u)) calc(4 * var(--u));
+  }
+  .logo-chip.logo-chip-dark { background: var(--text-primary); }
   /* logo-row: institution logos in the header right block (REAL logos the
      user provided — never fabricate a seal). Each img MUST carry
      data-color-exempt="logo"; height pairs with the QR. */
@@ -381,6 +397,7 @@
     position: relative;
   }
   .card.tinted    { background: var(--bg-card-tint); }
+  .card.card--compact { padding: calc(3 * var(--u)) calc(7 * var(--u)); }   /* predefined variant: tighter padding (fix (f)) */
   /* .highlight de-gradiented: flat emphasis tint instead of a linear-gradient. */
   .card.highlight {
     border-left: calc(6 * var(--u)) solid var(--accent);
@@ -482,6 +499,7 @@
   /* Figure container */
   .figure { margin: calc(4 * var(--u)) 0; text-align: center; }
   .figure img:not([class*="w-"]) { width: 100%; }
+  .figure--wide img { width: 100%; }   /* predefined variant: force full card width over any .w-NN (fix (f)) */
   .figure img {
     /* FIGURE CONTRACT: figures must come from the paper:
          <img src="assets/paper_figures/x.png" data-source="paper"
