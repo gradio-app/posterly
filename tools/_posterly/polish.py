@@ -504,8 +504,10 @@ _POLISH_JS = r"""
   // The framework banner (.fb-text) is the poster's single most prominent text
   // block; a merely "not-a-runt" last line still reads as a ragged box there. It
   // gets a much higher bar -- aim for a near-full last line (a filled rectangle),
-  // reached by tuning the .fb-text width so the text reflows (SKILL.md Gate B),
-  // NOT by justification. Still a soft warning, never a hard fail.
+  // reached by reflowing the text: tune the .fb-text width, bump its font size,
+  // and/or expand/trim the wording -- any one or a moderate mix (SKILL.md Gate B),
+  // NOT by justification / letter-spacing padding, nor by pushing one lever to an
+  // extreme (e.g. a blown-up font) just to pass. Still a soft warning, never a hard fail.
   const BANNER_FILL_FRAC = 0.80;
   const WIDOW_SEL = '.callout, .body-text, .caption, .section-title,'
                   + ' .card p, .card li, .fb-text';
@@ -1150,7 +1152,8 @@ def cmd_polish(args: argparse.Namespace) -> int:
     # above the threshold, so the recommended fix still clears the gate. The
     # framework banner (`.fb-text`) carries a `banner` flag and a higher bar
     # (BANNER_FILL_FRAC): it must read as a FILLED rectangle, so it gets a
-    # width-tuning message instead of the runt/glue one.
+    # fill-the-rectangle message (reflow via width, font size, and/or rewording
+    # -- combinable, in moderation) instead of the runt/glue one.
     for w in data.get("widows", []):
         if w.get("banner"):
             warns.append(
@@ -1158,9 +1161,18 @@ def cmd_polish(args: argparse.Namespace) -> int:
                 f"the framework banner is the poster's most prominent block, but its "
                 f"last line fills only {int(w['frac'])}% of the typeset width "
                 f"('{ascii_safe(w['word'])}') -- it should read as a filled rectangle "
-                f"(SKILL.md Gate B). Tune the .fb-text width (its flex ratio against "
-                f".banner-stats) so the text reflows to a near-full last line without "
-                f"starving the stat boxes; reword only if width alone can't. "
+                f"(SKILL.md Gate B). Reflow it to a near-full last line by any of, or "
+                f"a moderate mix of: (a) tune the .fb-text width (its flex ratio vs "
+                f".banner-stats -- fill jumps non-monotonically, try a few) without "
+                f"starving the stat boxes; (b) bump the .fb-text font size one --fs-* "
+                f"step, if it shifts the wrap (also makes the block bolder), without "
+                f"overflowing the banner or colliding with the stats; (c) expand the "
+                f"wording with a few truthful, on-message words (keep .fb-text under "
+                f"~400 chars, or the gate stops measuring it); (d) trim it to one-fewer "
+                f"full line. Keep the change proportionate -- don't push one lever to an "
+                f"extreme (e.g. a blown-up font) just to clear the gate, and never force "
+                f"it with text-align: justify / text-align-last or letter-spacing "
+                f"padding. Re-render and look after. "
                 f"Context: '{ascii_safe(w['text'])}'."
             )
         else:

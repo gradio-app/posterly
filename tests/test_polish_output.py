@@ -841,9 +841,10 @@ def test_widow_strict_fails_and_empty_is_clean(
 def test_widow_banner_gets_fill_message(
     tmp_path, monkeypatch, capsys
 ) -> None:
-    # A .fb-text widow carries banner=True -> the "filled rectangle / tune the
-    # .fb-text width" message, NOT the runt/glue one; it still counts as a prose
-    # widow and a warning (and, under --strict, would fail like any warning).
+    # A .fb-text widow carries banner=True -> the "filled rectangle" message
+    # offering the parallel reflow levers (width / font size / expand / trim,
+    # combinable in moderation), NOT the runt/glue advice; it still counts as a
+    # prose widow and a warning (and, under --strict, would fail like any warning).
     data = {
         "figures": [], "orphans": [], "cols": [],
         "widows": [
@@ -856,7 +857,7 @@ def test_widow_banner_gets_fill_message(
     combined.encode("ascii")                        # no Unicode leak
     assert "BANNER WIDOW" in combined
     assert "filled rectangle" in combined
-    assert ".fb-text width" in combined             # names the width-tuning fix
+    assert ".fb-text width" in combined             # names the width lever (a)
     assert "a runt" not in combined                 # not the runt/glue advice
     assert "17%" in combined
     assert "prose widows        : 1" in combined
