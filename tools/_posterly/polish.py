@@ -27,7 +27,13 @@ Three gates the hard alignment gate cannot see:
     on a column with one short card produces a giant whitespace gap
     that reads as "this column ran out of things to say". Detected
     when the largest inter-card gap exceeds the column's stated
-    ``row-gap`` by > 5% of column height.
+    ``row-gap`` by > 5% of column height. Two card-level siblings catch
+    the same void inside a single card: ``CARD/TRAILING`` (blank BELOW
+    the last line of a stretched card) and ``CARD/INNER-VOID`` (a gap in
+    the MIDDLE of a card, below the last real block and above a child
+    pinned to the bottom by ``margin-top: auto`` / ``justify-content:
+    space-*`` -- the equal-height-row-with-unequal-content case, which
+    ``CARD/TRAILING`` misses because the pinned tail makes trailing ~0).
 
 Warns by default; ``--strict`` to exit non-zero. Hard-fails if the
 poster has no ``[data-measure-role]`` markup at all — a polish PASS on
@@ -76,6 +82,24 @@ DEFAULT_HERO_LETTERBOX_AR_MULT = 1.6
 # beside-text AR opt-out proves the figure is side-hugged but never checked
 # the text actually fills the other side; this closes that residual.
 DEFAULT_BESIDE_VOID_RATIO = 0.30
+
+# Inner-card void (Gate C, third sibling of SPACE-BETWEEN / CARD/TRAILING).
+# Those two catch a gap BETWEEN cards in a column and blank BELOW a card's
+# last line; neither sees a void in the MIDDLE of a card. When a card is
+# stretched taller than its content (an equal-height grid row with unequal
+# content) and a child is pinned to the bottom -- `margin-top: auto`, or a
+# `justify-content: space-*` on the card itself -- the slack opens between
+# two children, below the last real block and above the pinned one, so the
+# trailing-below-last reads ~0 and CARD/TRAILING stays silent. Detected by
+# geometry (largest inter-child vertical gap minus the card's stated
+# row-gap), so the mechanism (auto-margin / space-between / stray margin)
+# does not matter. The scan covers every `.card` (not only the
+# data-measure-role-tagged ones), so an agent-authored feature band whose
+# cards carry only the `.card` class is still checked. Flag when the excess
+# is BOTH > this fraction of card height AND > the px floor (the floor keeps
+# a sub-line gap on a small card from tripping it).
+DEFAULT_CARD_INNER_VOID = 0.08
+DEFAULT_CARD_INNER_VOID_PX = 24.0
 
 # Header-logo gates (Gate E). Same single-source pattern as above: the
 # CLI defaults in poster_check.py import these, and the getattr fallbacks
@@ -818,8 +842,78 @@ _POLISH_JS = r"""
     });
   });
 
-  return {figures, orphans, cols, cards, flexbr, besideVoids, widows,
-          logos, qrs, header_w: headerW, header_cx: headerCx,
+  // ---- 7) Inner-card void: oversized gap BETWEEN a card's stacked
+  //         children ----
+  // SPACE-BETWEEN catches a gap BETWEEN cards in a column; CARD/TRAILING
+  // catches blank BELOW a card's last line. Neither sees a void in the
+  // MIDDLE of a card -- e.g. a `.card` stretched to an equal-height grid
+  // row taller than its content with a child pinned to the bottom
+  // (`margin-top: auto`, or `justify-content: space-*` on the card). The
+  // slack opens below the last real block and above the pinned one, so
+  // trailing reads ~0. Measured purely by geometry (largest inter-child
+  // vertical gap minus the stated row-gap) so the mechanism does not
+  // matter, and scoped to `.card` (not just data-measure-role) so an
+  // agent-authored feature band whose cards aren't tagged is still seen.
+  const innerVoids = [];
+  const seenIV = new Set();
+  // Scope to the poster so a stray `.card` outside it can't be sampled.
+  const ivRoot = document.querySelector('[data-measure-role="poster"]')
+              || document;
+  ivRoot.querySelectorAll('.card, [data-measure-role="card"]')
+    .forEach(card => {
+      if (seenIV.has(card)) return;
+      seenIV.add(card);
+      const cs = window.getComputedStyle(card);
+      const cr = card.getBoundingClientRect();
+      if (cr.height <= 0) return;
+      const gap = parseFloat(cs.rowGap || cs.gap || '0') || 0;
+      // Direct, in-flow element children with a real box. Skip abs/fixed
+      // (a corner badge/QR is not flow content). Use getAttribute('class')
+      // -- an SVG child's `.className` is an SVGAnimatedString and .trim()
+      // on it throws, which would crash the whole evaluate.
+      const kids = Array.from(card.children).map(c => {
+        const r = c.getBoundingClientRect();
+        const pos = window.getComputedStyle(c).position;
+        const cl = ((c.getAttribute('class') || '').trim()
+                      .split(/\s+/)[0]) || '';
+        return {tag: c.tagName.toLowerCase(), cls: cl,
+                top: r.top, bottom: r.bottom, h: r.height, pos};
+      }).filter(c => c.h > 0 && c.pos !== 'absolute' && c.pos !== 'fixed')
+        .sort((a, b) => a.top - b.top);
+      if (kids.length < 2) return;
+      // Merge same-row children: walk in top order tracking the running MAX
+      // bottom of everything seen so far, and count a gap only when a child
+      // STARTS below that max. A side-by-side row (figure beside text, a
+      // flex row) is dominated by its tallest member, so a following block
+      // that clears the tall one is NOT a void -- this avoids measuring
+      // `next.top - shortSibling.bottom` across an already-filled row.
+      // NOTE: only DIRECT children are inspected; a void nested inside a
+      // single wrapper (`.card > .body` flex column) is not seen -- keep a
+      // card's content flat for the gate to cover it (see SKILL.md Gate C).
+      let rowMaxBottom = kids[0].bottom;
+      let rowMaxIdx = 0;
+      let maxGap = 0, pairBelow = -1, pairAbove = -1;
+      for (let i = 1; i < kids.length; i++) {
+        const g = kids[i].top - rowMaxBottom;
+        if (g > maxGap) { maxGap = g; pairBelow = i; pairAbove = rowMaxIdx; }
+        if (kids[i].bottom > rowMaxBottom) {
+          rowMaxBottom = kids[i].bottom;
+          rowMaxIdx = i;
+        }
+      }
+      const lab = k => k.tag + (k.cls ? '.' + k.cls : '');
+      innerVoids.push({
+        cls: (card.getAttribute('class') || ''),
+        card_h: cr.height,
+        stated_gap: gap,
+        excess: maxGap - gap,
+        above: pairAbove >= 0 ? lab(kids[pairAbove]) : '',
+        below: pairBelow > 0 ? lab(kids[pairBelow]) : '',
+      });
+    });
+
+  return {figures, orphans, cols, cards, innerVoids, flexbr, besideVoids,
+          widows, logos, qrs, header_w: headerW, header_cx: headerCx,
           header_content_left: headerContentLeft,
           header_content_right: headerContentRight, headerBlocks,
           bannerImgs};
@@ -1220,6 +1314,35 @@ def cmd_polish(args: argparse.Namespace) -> int:
                 f"See Gate C in SKILL.md."
             )
 
+    # ---- Gate C (one card): mid-card void between two stacked children ----
+    iv_ratio = getattr(args, "max_card_inner_void", DEFAULT_CARD_INNER_VOID)
+    iv_floor = getattr(
+        args, "min_card_inner_void_px", DEFAULT_CARD_INNER_VOID_PX)
+    for c in data.get("innerVoids", []):
+        ch = float(c["card_h"])
+        excess = float(c["excess"])
+        if ch <= 0 or excess <= iv_floor:
+            continue
+        if excess / ch <= iv_ratio:
+            continue
+        between = ""
+        if c.get("above") and c.get("below"):
+            between = (f" between <{ascii_safe(c['above'])}> and "
+                       f"<{ascii_safe(c['below'])}>")
+        warns.append(
+            f"CARD/INNER-VOID: a <{ascii_safe(c['cls'])}> card has a "
+            f"{excess:.0f} px gap ({excess / ch * 100:.0f}% of card height, "
+            f"stated row-gap {c['stated_gap']:.0f} px){between} -- a void in "
+            f"the MIDDLE of the card, below the last real block and above a "
+            f"bottom-pinned one. The usual cause is an equal-height row "
+            f"(grid/flex `align-items: stretch`) of cards with unequal "
+            f"content where the short card pins its tail with "
+            f"`margin-top: auto` (or `justify-content: space-*`). Fill the "
+            f"short card with substance, or drop the bottom-pin / "
+            f"equal-height stretch so it hugs its content. See Gate C in "
+            f"SKILL.md."
+        )
+
     # ---- Gate D: <br> inside a flex container ----
     # A <br> that is a direct child of a flex container is blockified into
     # a flex item and creates NO line break, so intended multi-line text
@@ -1469,6 +1592,7 @@ def cmd_polish(args: argparse.Namespace) -> int:
     print(f"  prose widows        : {len(data.get('widows', []))}")
     print(f"  space-between cols  : {len(data.get('cols', []))}")
     print(f"  cards checked       : {len(data.get('cards', []))}")
+    print(f"  inner-void cards    : {len(data.get('innerVoids', []))}")
     print(f"  beside-text floats  : {len(data.get('besideVoids', []))}")
     print(f"  flex/<br> parents   : {len(data.get('flexbr', []))}")
     print(f"  header logos        : {len(data.get('logos', []))}")

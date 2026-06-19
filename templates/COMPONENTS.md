@@ -70,14 +70,17 @@ Gate name shorthand (DESIGN_FINAL §3–§7):
   left-bar / border-strong), `--border-soft`, `--text-primary`. Shadow uses a token-derived
   rgba allowed by style rule 5 only at alpha ≤ 0.06.
 - **Inspected by**: `measure` (card-bottom spread < 5px, intercard gap 12–50 HARD), `polish`
-  (CARD/TRAILING — a single card stretched with blank space below its content), `preflight`
+  (CARD/TRAILING — blank below a stretched card's content; CARD/INNER-VOID — a mid-card void
+  when a bottom-pinned tail stretches in an equal-height row), `preflight`
   (valid role), `style` (no inline style, colors via var).
 - **Allowed fix operations**: (a) token retune, (b) move/add/delete a whole card across columns,
   (c) content rebalance inside the card, (e) global card stylesheet change (tokens only),
   (f) switch to `.card--compact` / `.card.highlight` / `.card.tinted`.
 - **Anti-patterns**: inline `style="background:#…"` on a card to "make it pop" (style rule 1/2);
   padding a card with blank lines to fill column height instead of moving content (measure
-  intercard-gap HARD fail / polish CARD/TRAILING, rubric "half-empty card" cap ≤5); a fourth highlight per column (dilutes
+  intercard-gap HARD fail / polish CARD/TRAILING, rubric "half-empty card" cap ≤5);
+  bottom-pinning a card's footer with `margin-top:auto` in an equal-height row of unequal
+  content (opens a mid-card void → polish CARD/INNER-VOID); a fourth highlight per column (dilutes
   the single-accent discipline, rubric ≤4 if it adds a hue family).
 
 ## numbered-card (`.card` + `.section-title` with `.num`)

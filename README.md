@@ -160,7 +160,7 @@ The four sanity-check CLIs at a glance:
 
 - `preflight`     — static lint: LaTeX residue, raw `<` inside math, missing local images, remote-image warnings (a print poster should be self-contained), missing `data-measure-role` markup.
 - `measure`       — print-emulated geometry: column-bottom spread, gap to footer, poster bbox aligned to the page.
-- `polish`        — soft visual checks: figure-AR sizing, broken/zero-size images (FIG/BROKEN), typography orphans, space-between fill, card trailing whitespace (CARD/TRAILING — a stretched card padded with blank space).
+- `polish`        — soft visual checks: figure-AR sizing, broken/zero-size images (FIG/BROKEN), typography orphans, space-between fill, card whitespace (CARD/TRAILING — blank below a stretched card's content; CARD/INNER-VOID — a void in the middle of a stretched equal-height card whose tail is bottom-pinned).
 - `verify-final`  — `pdfinfo`-based PDF sanity: page count, dimensions, file size.
 
 Three further gates layer on top, documented in `SKILL.md`: `run_gates.py` (the default Step-4 loop driver — runs every gate into one report), `style_check.py` (a hard design-token gate, on by default), and `asset_check.py` (real-figure provenance, opt-in via `--manifest`). The four `poster_check.py` CLIs above are the minimal fallback for a non-tokenized / imported template.

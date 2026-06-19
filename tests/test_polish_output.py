@@ -120,6 +120,34 @@ def test_polish_output_ascii_and_flags_broken_image(
     assert rc == 0                           # warnings only (not --strict)
 
 
+def _iv(cls, card_h, excess):
+    return {"cls": cls, "card_h": card_h, "stated_gap": 0.0,
+            "excess": excess, "above": "div.eqn", "below": "div.why"}
+
+
+def test_card_inner_void_threshold_boundaries(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    # Defaults: ratio 0.08 of card height AND a 24 px floor; a card flags
+    # only when its largest inter-child gap exceeds BOTH. The five cards
+    # isolate each condition and each boundary.
+    data = {
+        "innerVoids": [
+            _iv("card flag-me", 1000.0, 90.0),     # 9.0% & 90px > both -> FLAG
+            _iv("card under-ratio", 2000.0, 100.0),  # 100px>24 but 5.0% -> no
+            _iv("card under-floor", 200.0, 20.0),    # 10.0% but 20px<24 -> no
+            _iv("card eq-floor", 1000.0, 24.0),      # excess == floor -> no
+            _iv("card eq-ratio", 1000.0, 80.0),      # 80px>24, == 8.0% -> no
+        ],
+    }
+    combined, rc = _run(monkeypatch, tmp_path, capsys, data)
+    assert rc == 0
+    assert combined.count("CARD/INNER-VOID") == 1   # only the over-both card
+    assert "card flag-me" in combined
+    for quiet in ("under-ratio", "under-floor", "eq-floor", "eq-ratio"):
+        assert quiet not in combined
+
+
 def test_svg_zero_natural_size_not_flagged_broken(
     tmp_path, monkeypatch, capsys
 ) -> None:

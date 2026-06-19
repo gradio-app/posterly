@@ -236,6 +236,22 @@ def build_parser() -> argparse.ArgumentParser:
              "with whitespace to fake a full page",
     )
     ppl.add_argument(
+        "--max-card-inner-void", type=float,
+        default=_polish.DEFAULT_CARD_INNER_VOID,
+        help="warn (CARD/INNER-VOID) if a card's largest gap between two "
+             "stacked children exceeds the stated row-gap by more than this "
+             "fraction of card height (default %(default)s); catches a "
+             "bottom-pinned tail (margin-top:auto / space-*) opening a void "
+             "in the middle of a stretched equal-height card",
+    )
+    ppl.add_argument(
+        "--min-card-inner-void-px", type=float,
+        default=_polish.DEFAULT_CARD_INNER_VOID_PX,
+        help="CARD/INNER-VOID absolute floor in px (default %(default)s); a "
+             "gap must exceed BOTH this and --max-card-inner-void to flag, "
+             "so a sub-line gap on a small card stays quiet",
+    )
+    ppl.add_argument(
         "--logo-max-width-ratio", type=float,
         default=_polish.DEFAULT_LOGO_MAX_WIDTH_RATIO,
         help="warn (LOGO/WIDE) if a header logo renders wider than this "
