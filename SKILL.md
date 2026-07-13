@@ -63,8 +63,9 @@ python -m playwright install chromium
 human is present AND a choice is genuinely load-bearing and unclear. Otherwise
 infer everything from the source material using these defaults:
 
-- **Canvas:** 60×36in landscape. Skip the venue web-lookup (Step 0) unless a
-  venue is explicitly named — and never imply a venue the work wasn't published at.
+- **Canvas:** narrower landscape by default — **48×36in** for `landscape_hero`,
+  60×36in for `landscape_4col`. Skip the venue web-lookup (Step 0) unless a venue
+  is explicitly named — and never imply a venue the work wasn't published at.
 - **Framing:** if the input is a reproduction / logbook / replication, use
   faithful-reproduction framing (the paper's claim vs. what the runs *actually*
   showed) — never dress results up to match the paper.
@@ -105,6 +106,10 @@ defaults settle most of it; the notes below are the *meaning* of each choice:
 - **QR code**: include one only if the source has a paper / arXiv / repo link; point it there. Generate it **offline** as a local image (`qrencode`); never leave a remote QR-service URL — it hangs `measure`'s networkidle wait and link-rots.
 - **Text density** (default **Normal**): **Light** = fewer words, freed space reassigned to paper-sourced figures — trim secondary prose and merge low-value text cards *only* when the space becomes larger AR-appropriate figures. Never blank columns/cards/gaps; the Step 4/6 gates still apply.
 - **Block count** (default **Normal**): **Fewer** = consolidate related material into fewer, larger cards. Orthogonal to density. Merge and enlarge, never delete substance; don't shrink type to fit; still fill the canvas.
+- **Header composition** (enforced defaults):
+  - **No venue/qualifier badge** in the left slot — leave it the empty spacer that ships in the template, so the title stays centered against the right-block (logo/QR). Add a left badge **only** if a venue is actually named.
+  - **Qualifier tag inline**: any tag like "[ A Reproduction ]" goes on the **same line as the title** (a styled `<span>`), never stacked on its own line below.
+  - **Author + affiliation on ONE line**: author(s) + `✉` then a `·` then the affiliation, all inline (`.aff` is `display:inline`).
 
 Record your choices in build notes so a later edit doesn't revert them.
 
@@ -258,7 +263,7 @@ A gallery template is a **scaffold**: it passes `preflight` (structure) as shipp
 
 **Hero-template notes (`landscape_hero`).** Two things save several render iterations:
 
-1. **Generate the hero figure at the stage's pixel size.** The hero stage renders large (~3200×2000px for a 60×36in poster). Export the hero image at **≥ that width and near the stage's aspect ratio (~1.58:1)** — a smaller image can't fill the stage (with the shipped `object-fit:contain` fill it upscales blurry; with a `width:auto` variant it renders small and centered with big voids). `polish` warns **HERO/UNDER-RESOLVED** when a raster hero is below the rendered stage width. Read the stage box once with a quick Playwright `getBoundingClientRect()` on `.hero-stage`, then match the figure's px + AR to it.
+1. **Generate the hero figure at the stage's pixel size.** The hero stage renders large (order ~2900×1700px for the 48×36in default; measure it — see below). Export the hero image at **≥ the rendered stage width and near its aspect ratio** — a smaller image can't fill the stage (with the shipped `object-fit:contain` fill it upscales blurry; with a `width:auto` variant it renders small and centered with big voids). `polish` warns **HERO/UNDER-RESOLVED** when a raster hero is below the rendered stage width. Read the stage box once with a quick Playwright `getBoundingClientRect()` on `.hero-stage`, then match the figure's px + AR to it.
 2. **Plan a beside-text figure for the supporting column.** The right-hand column is usually text-light and cannot bottom-align with a tall hero on prose alone — the natural content ends far short and `measure` reports a big inter-card void. Don't pad with whitespace or shrink a centered figure into side-voids (trips FIG/WIDE). Instead put a second real figure **floated beside the text** (`.fig-wrap` + `.ff-fig`, `data-fig-layout="beside-text"`) as the **last card**, so it fills height efficiently and its width is a clean alignment lever.
 
 Tools live in `tools/` and read `@page` from the HTML, so they're canvas-agnostic — the same commands work for ICLR portrait and ICML landscape.
@@ -391,7 +396,7 @@ A figure whose `<img>` fails to load (missing file, 404, or unreachable remote U
 
 **Hero figures aren't exempt from sizing — HERO/STAGE-LETTERBOX.** The card-width AR gates above (FIG/WIDE etc.) don't apply to a hero panel, but a hero figure can still waste its space: a narrow-aspect picture dropped into a wide-but-**short** `.hero-stage` is height-constrained and strands itself with big symmetric side voids (a 2:1 panorama height-capped in a 5:1 stage fills ~35 % of the width). **HERO/STAGE-LETTERBOX** fires when the picture fills < 55 % of the stage width *while* the stage is much wider (relative to the image AR) than the image needs, with symmetric voids. The usual root cause is cramming a second large figure into the hero so the main figure loses vertical budget — move the secondary diagram into a card / the supporting column, or constrain the stage width toward the image's aspect ratio. A genuine full-bleed hero (image AR ≈ stage AR, picture fills the width) never trips it.
 
-**A hero figure also can't be under-resolved — HERO/UNDER-RESOLVED.** The stage renders large (~3200px wide at 60×36in); a raster hero whose natural width is below the rendered stage width can't fill it at native resolution (small-and-centered with `width:auto`, or upscaled-blurry with the shipped `object-fit:contain` fill). Fix: regenerate the figure at **≥ the stage pixel width and near its AR** (see Step 3 Hero-template notes). SVGs are resolution-independent and exempt. Tune the floor with `--hero-min-res-ratio` (default 1.0×).
+**A hero figure also can't be under-resolved — HERO/UNDER-RESOLVED.** The stage renders large (order ~2900px wide at the 48×36in default); a raster hero whose natural width is below the rendered stage width can't fill it at native resolution (small-and-centered with `width:auto`, or upscaled-blurry with the shipped `object-fit:contain` fill). Fix: regenerate the figure at **≥ the stage pixel width and near its AR** (see Step 3 Hero-template notes). SVGs are resolution-independent and exempt. Tune the floor with `--hero-min-res-ratio` (default 1.0×).
 
 **A wide, short footer-strip can reclaim its title-row height — the `vrail` modifier.** When a bottom band is wide and short and a horizontal title row eats height the body could use, move the title into a **narrow left rail** so the body takes the full strip height. This is the content-agnostic `vrail` modifier (COMPONENTS.md): it suits any wide-short full-width band — a *row of small example figures* (a benchmark / task gallery) is the common case (the figures enlarge), but any other wide-short band you author works the same — a metrics row, say. The `.num` badge stays upright on top and the title's words **stack one per horizontal line** (every word reads normally — never rotated/sideways), centered, which also evens out uneven word lengths. An over-long word is broken with a soft hyphen `&shy;` at a sensible syllable point **you (the agent) judge** — not `hyphens: auto`, which no-ops in the headless renderer and lets the word overflow. Mark the title `data-vrail-title` so the deliberately narrow stack is exempt from the WIDOW check. **Only on a wide, short, full-width strip** — never a narrow column card, where the rail eats scarce horizontal width instead of freeing it (a title too long to fit without several hyphenations is the signal to shorten it or stay horizontal).
 
@@ -642,7 +647,7 @@ Step 6.5 becomes a true **final gate** when run after `run_gates.py` is all-gree
 
 See `templates/README.md` for the gallery. Current set (all **tokenized** — pass `style_check` as shipped):
 - `landscape_4col_neutral.html` (60×36 in, 4 cols)
-- `landscape_hero_neutral.html` (60×36 in, hero + supporting col)
+- `landscape_hero_neutral.html` (48×36 in, hero + supporting col)
 - `portrait_2col_neutral.html` (24×36 in, 2 cols)
 
 Adding a template: keep it neutral (no lab branding), preserve the `data-measure-role` scheme, tokenize it (DESIGN TOKENS block + `--fs-*` scale, colors via `var(--…)`, no inline `style=` / gradients) so it passes `style_check`, and document the row in `templates/README.md`.

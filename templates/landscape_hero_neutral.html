@@ -14,7 +14,7 @@
   ARIS modifications: flat de-gradient, --fs token scale, zero-inline-style
   utilities, data-source/data-color-exempt contracts.
 
-  CANVAS:   60in × 36in landscape (ICML / NeurIPS / generic landscape) DEFAULT.
+  CANVAS:   48in × 36in landscape (narrower 4:3 default; hero + supporting column).
             CANVAS RETARGETING: to change the print size, edit BOTH the @page
             `size` (one place, in the CANVAS block below) AND the .poster
             `width`/`height` (one place, in the .poster rule). Keep them in
@@ -81,11 +81,11 @@
 
 <style>
   /* =========================================================
-     CANVAS — 60" × 36" landscape (identical to sibling template).
+     CANVAS — 48" × 36" landscape (narrower 4:3 hero default).
      RETARGET: change @page size here AND .poster width/height below.
      ICLR 2026 main = 1850mm 900mm (185×90 cm) landscape — see header note.
      ========================================================= */
-  @page { size: 60in 36in; margin: 0; }
+  @page { size: 48in 36in; margin: 0; }
 
   :root {
     /* ===== DESIGN TOKENS ===== */
@@ -170,7 +170,7 @@
      poster_check.py can verify the canvas size.
      RETARGET: width/height must track @page size (see CANVAS block). */
   .poster {
-    width: calc(1524 * var(--u));
+    width: calc(1219 * var(--u));
     height: calc(914 * var(--u));
     background: var(--bg-page);
     /* The only gradient the catalog sanctions (rule 5 enforces it only when re-enabled): a low-alpha radial tint
@@ -272,8 +272,7 @@
   .authors-line .aff {
     color: var(--text-secondary);
     font-weight: 400;
-    display: block;
-    margin-top: calc(2 * var(--u));
+    display: inline;          /* author + affiliation share ONE line */
     font-size: var(--fs-4);
   }
 
@@ -940,7 +939,7 @@
      ========================================================= */
   @media print {
     html, body { background: white; }
-    .poster { margin: 0; box-shadow: none; width: 60in; height: 36in; page-break-after: avoid; }
+    .poster { margin: 0; box-shadow: none; width: 48in; height: 36in; page-break-after: avoid; }
     :root { --u: 1mm; }
   }
 </style>
@@ -951,21 +950,19 @@
 
   <!-- =========================== HEADER =========================== -->
   <header class="header" data-measure-role="header">
-    <!-- LEFT: venue badge. Replace text or swap for an <img> if your venue allows logos. -->
-    <div class="venue-badge">
-      <div class="vb-venue">VENUE</div>
-      <div class="vb-year">YEAR</div>
-      <div class="vb-tag">POSTER</div>
-    </div>
+    <!-- LEFT: empty spacer. It holds the grid's left track so the title stays
+         centered against the right-block (logo/QR). Add a venue badge here ONLY
+         if a venue is named (see Step 0.5 header defaults) — no bare badge. -->
+    <div aria-hidden="true"></div>
 
-    <!-- CENTER: title block -->
+    <!-- CENTER: title block. Any qualifier tag (e.g. "[ A Reproduction ]") goes
+         INLINE on the title line, not stacked below. Author + affiliation share
+         ONE line (.aff is display:inline). -->
     <div class="title-block">
       <h1 class="title">POSTER TITLE: <span class="accent">Subtitle Keyword</span></h1>
       <div class="subtitle">One-sentence tagline that explains the work in plain English.</div>
       <div class="authors-line">
-        <span class="author">Author One</span> &middot;
-        <span class="author">Author Two</span> &middot;
-        <span class="author">Author Three<sup>&#9993;</sup></span>
+        <span class="author">Author One<sup>&#9993;</sup></span> &middot;
         <span class="aff">Lab / Department &middot; Institution &middot; City, Country</span>
       </div>
     </div>
