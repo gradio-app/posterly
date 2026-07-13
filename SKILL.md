@@ -1,8 +1,13 @@
 ---
 name: posterly
 description: "Build an academic conference poster (ICML/NeurIPS/ICLR/CVPR/etc.) as a single HTML/CSS file and render it to print-ready PDF via headless Chromium. Use when user says \"做海报\", \"poster\", \"ICML/NeurIPS/ICLR poster\", or asks to design/edit a research poster."
-allowed-tools: Bash(*), Read, Write, Edit, Grep, Glob, AskUserQuestion, WebFetch, WebSearch
+allowed-tools: Bash(*), Read, Write, Edit, Grep, Glob, WebFetch, WebSearch
 ---
+
+> **This fork runs fully headless — no user interaction.** Every design choice is
+> inferred from the source material using the defaults in Step 0.1; there is no
+> AskUserQuestion round. It is built to run end-to-end and produce a finished
+> poster with zero prompts.
 
 # posterly — HTML/CSS Academic Poster Workflow
 
@@ -40,6 +45,42 @@ The skill is venue- and lab-neutral by default. Pick a template from `templates/
 
 ## Workflow
 
+### Prerequisite — verify the renderer once
+
+The measure/polish/render gates need Chromium via Playwright. `pip install -e .`
+does not always pull it, and a missing renderer makes gates SILENTLY skip while
+`run_gates` still reports an overall FAIL — confusing. Confirm up front:
+
+```bash
+python -c "from playwright.sync_api import sync_playwright" \
+  || python -m pip install playwright
+python -m playwright install chromium
+```
+
+### Step 0.1 — Non-interactive defaults (run without asking)
+
+**Default to running end-to-end with NO questions.** Only ask (Step 0.5) when a
+human is present AND a choice is genuinely load-bearing and unclear. Otherwise
+infer everything from the source material using these defaults:
+
+- **Canvas:** 60×36in landscape. Skip the venue web-lookup (Step 0) unless a
+  venue is explicitly named — and never imply a venue the work wasn't published at.
+- **Framing:** if the input is a reproduction / logbook / replication, use
+  faithful-reproduction framing (the paper's claim vs. what the runs *actually*
+  showed) — never dress results up to match the paper.
+- **Layout:** pick by content, don't ask. One dominant figure ⇒ `landscape_hero`;
+  3–5 balanced cards per column ⇒ `landscape_4col` (the default); portrait only
+  if a portrait canvas is named.
+- **Palette:** *derive* a topic/brand accent via **§Palette derivation** (e.g. a
+  field- or logo-driven hue); fall back to the neutral template palette only as a
+  last resort — do not ask "what colors?".
+- **QR:** auto-target the paper / arXiv / repo link if one appears in the source;
+  omit it otherwise. Generate offline.
+- **Text density / block count:** normal / normal.
+
+Record the inferred choices in your build notes (same as Step 0.5 answers) so a
+later edit doesn't revert them.
+
 ### Step 0 — Pull the venue's official poster guidelines
 
 Conference specs change year-to-year and vary wildly between venues:
@@ -50,23 +91,24 @@ Conference specs change year-to-year and vary wildly between venues:
 Procedure:
 1. `WebSearch` for `"<venue> <year> poster instructions"` or `"<venue> <year> poster size"`.
 2. `WebFetch` the venue's official page; extract **dimensions, orientation, font-size floor, logo policy, anonymity rules, file-format requirement, template link if any**.
-3. If paywalled or down, check OpenReview's call-for-papers or ask the user for the relevant section.
-4. Echo the extracted spec back to the user in one short table **BEFORE** drafting. Confirm before proceeding — a wrong canvas size invalidates every alignment decision downstream.
+3. If paywalled or down, check OpenReview's call-for-papers, else fall back to the default 60×36in canvas.
+4. Record the extracted spec (dimensions, orientation, font floor) in your build notes **BEFORE** drafting — a wrong canvas size invalidates every alignment decision downstream.
 
-### Step 0.5 — Design discovery (one round of AskUserQuestion)
+### Step 0.5 — Design choices (decide from the source, no questions)
 
-Don't pick a template, colors, logos, a QR target, the text density, or the block count silently. Ask the user in one round. AskUserQuestion takes at most 4 questions per call, so if more than four of the topics below need input for this poster, send the four most decision-relevant first and ask the rest (usually QR and block count) in a brief second call:
+Decide each of these yourself from the source material — never ask. The Step 0.1
+defaults settle most of it; the notes below are the *meaning* of each choice:
 
-- **Layout**: "Which gallery template fits best? (a) 4-column landscape, (b) hero + supporting column landscape, (c) 2-column portrait." Show them `templates/README.md`'s table.
-- **Palette**: "Lab/venue colors? E.g. `#XXX` accent + `#YYY` highlight — or say 'you pick'." When the user gives colors, use them. When they don't, do **not** silently fall back to the one house style: derive a poster-specific palette from the materials at hand (**§Palette derivation** below) and propose it in this same round — "suggest `#660874` from the Tsinghua brand — OK?" — so the user can veto cheaply. The neutral slate-blue + gold shipped in the templates is the *last-resort* fallback, not the default.
-- **Logos & venue mark**: "Any logos to place? Affiliation / lab logo, and the conference / journal logo — give paths or URLs, or say 'none'." Don't assume a venue logo is wanted; cross-check the logo policy from Step 0 (some venues forbid them). When logo files are provided, inspect each one (aspect ratio, transparency, background — Step 2 item 5) and pick a size class + chip treatment per **Gate E — Header logos** below; don't just drop them in at the default size.
-- **QR code**: "Want a QR code? If so, pointing at which link — paper / arXiv / code repo / project page — or none?" Generate it **offline** as a local image (see Customizing in README / `qrencode`); never leave a remote QR-service URL in the poster — it hangs `measure`'s networkidle wait and link-rots in print/archive.
-- **Text density**: "How much text should the poster carry? (a) **Normal** (default) — posterly's usual concise balance of prose and paper figures; (b) **Light** — fewer words, with the saved space reassigned to paper-sourced figures/diagrams across the poster." For **Light**: trim secondary prose and merge or drop low-value text cards *only* when the freed area becomes visual real estate — larger AR-appropriate figures, figure-dominant cards, or additional useful paper visuals. Keep multiple figures while each stays legible; do **not** concentrate the budget into one enlarged centerpiece or switch layouts for that reason. "More room" means larger, clearer visual regions — never blank columns / cards / gaps: the Step 4 `measure` gate and the Step 6 anti-whitespace / figure gates all still apply.
-- **Block count**: "How many content cards should the poster split into? (a) **Normal** (default) — the usual number of cards per column; (b) **Fewer** — fewer, larger cards for a calmer, less subdivided poster." This is **orthogonal to text density**: it controls how the content is *boxed*, not how much there is. For **Fewer**: consolidate related material into fewer, larger cards (merge adjacent cards that share a theme, fold a thin card into its neighbor) — keep every load-bearing section, number, equation, and figure; **merge and enlarge, never delete** substance, and don't shrink type to fit. Still fill the canvas — fewer cards means each card and its figures grow into the freed space; no blank columns / cards / gaps, the same `measure` and anti-whitespace gates apply.
+- **Layout**: one dominant figure ⇒ `landscape_hero`; 3–5 balanced cards/column ⇒ `landscape_4col` (default); portrait only if a portrait canvas is named. See `templates/README.md`.
+- **Palette**: derive a poster-specific accent from the material via **§Palette derivation** — a field/topic hue or a provided logo's dominant color. The neutral slate-blue + gold is the *last-resort* fallback, not the default.
+- **Logos**: only if logo files are provided in the source. Inspect each (aspect ratio, transparency, background — Step 2 item 5) and pick a size class + chip per **Gate E**. Never fabricate a logo; cross-check any venue logo policy from Step 0.
+- **QR code**: include one only if the source has a paper / arXiv / repo link; point it there. Generate it **offline** as a local image (`qrencode`); never leave a remote QR-service URL — it hangs `measure`'s networkidle wait and link-rots.
+- **Text density** (default **Normal**): **Light** = fewer words, freed space reassigned to paper-sourced figures — trim secondary prose and merge low-value text cards *only* when the space becomes larger AR-appropriate figures. Never blank columns/cards/gaps; the Step 4/6 gates still apply.
+- **Block count** (default **Normal**): **Fewer** = consolidate related material into fewer, larger cards. Orthogonal to density. Merge and enlarge, never delete substance; don't shrink type to fit; still fill the canvas.
 
-Persist the user's answers as you go — re-reading them later prevents "improvement" loops that revert deliberate decisions.
+Record your choices in build notes so a later edit doesn't revert them.
 
-### Palette derivation (when the user has no color preference)
+### Palette derivation (deriving the accent from the source)
 
 A paper already carries brand signals — the default palette should be **derived from them, not house-styled**. Pick the seed color from whichever signal is strongest for *this* poster (judgment call, no fixed priority):
 
@@ -124,15 +166,15 @@ Rules that hold regardless of seed source:
 - **Print-safe accent**: muted-to-medium saturation, medium-dark value. The AA loop above enforces the dark end; if a brand color is neon-bright, mute it toward the template's tone rather than shipping fluorescent ink.
 - **Secondary (`--gold`) stays unless it clashes**: the warm gold works as "ours/best" emphasis against any *cool* accent. If the seed itself is warm (red/orange/yellow hue), swap the secondary to a deep cool neutral (e.g. `#3D4A5C`) so emphasis still pops; derive `--gold-soft` as its ~90% white tint.
 - **Backgrounds stay near-white** (`--bg-page`/`--bg-card` untouched, or at most a faint seed-hued tint). Print legibility and every downstream check assume a light poster.
-- **Echo the choice**: state the seed source and final tokens to the user (Step 0.5 round) and record them in your build notes — "accent #660874 from Tsinghua brand; gold kept" — so a later edit doesn't "correct" a deliberate derivation back to neutral.
+- **Record the choice**: note the seed source and final tokens in your build notes — "accent #660874 from Tsinghua brand; gold kept" — so a later edit doesn't "correct" a deliberate derivation back to neutral.
 
 ### Step 1 — Confirm content & figures
 
-Once layout is picked, ask once:
+Once layout is picked, gather from the source material:
 - **Source paper** path (`paper-overleaf/.../main.tex` ideal). Read the abstract, intro, headline results. Don't draft from memory — pull actual numbers, dataset names, equations.
 - **Figures**: match `images/` filenames to paper figures.
-- **Corresponding-author marker**: which author gets `✉`? Any starred (`★`) co-authors?
-- **Items to preserve/exclude**: which sections to drop, any "do not revert" notes.
+- **Corresponding-author marker**: infer the corresponding author (gets `✉`) and any starred (`★`) co-authors from the paper.
+- **Items to preserve/exclude**: honour any "do not revert" notes already in the source or build notes.
 
 ### Step 1.5 — Content audit (mandatory; external reviewer recommended)
 
@@ -170,9 +212,9 @@ You may proceed to Step 2 **only after every finding is either fixed or explicit
 
 For each paper figure you'll use:
 
-1. **Vector source (EPS / PDF figure)?** Chromium `<img>` renders **neither EPS nor PDF** (converting to PDF does not help — also not embeddable), so a vector figure must be converted first. **SVG** is best — it stays crisp at poster scale. If a vector converter is already installed (`inkscape`, `pdf2svg`, `dvisvgm`), go straight to SVG. If none is installed, **ask the user** (one AskUserQuestion) whether to install one for a sharp vector figure, or rasterize to PNG instead — don't decide silently:
-   - **Willing to install → SVG** (preferred): e.g. `inkscape fig.eps --export-type=svg`, or `pdf2svg fig.pdf fig.svg`.
-   - **Decline → high-res PNG**: rasterize with Ghostscript at ≥ 2× rendered px — `gs -dSAFER -dBATCH -dNOPAUSE -dEPSCrop -r600 -sDEVICE=png16m -o fig.png fig.eps` (PIL works too; it shells out to `gs`: `Image.open('fig.eps').load(scale=5)`).
+1. **Vector source (EPS / PDF figure)?** Chromium `<img>` renders **neither EPS nor PDF** (converting to PDF does not help — also not embeddable), so a vector figure must be converted first. **SVG** is best — it stays crisp at poster scale. Decide without asking: if a vector converter is installed (`inkscape`, `pdf2svg`, `dvisvgm`), convert to SVG; if you can install one quickly, do so; otherwise rasterize to a high-res PNG. Don't block on it.
+   - **SVG** (preferred): e.g. `inkscape fig.eps --export-type=svg`, or `pdf2svg fig.pdf fig.svg`.
+   - **High-res PNG** (fallback): rasterize with Ghostscript at ≥ 2× rendered px — `gs -dSAFER -dBATCH -dNOPAUSE -dEPSCrop -r600 -sDEVICE=png16m -o fig.png fig.eps` (PIL works too; it shells out to `gs`: `Image.open('fig.eps').load(scale=5)`).
 
    Never embed the `.eps` / `.pdf` directly — it renders blank, caught only late as `polish`'s FIG/BROKEN after a wasted render.
 2. **Autocrop whitespace** with PIL.ImageChops so the figure fills its card.
@@ -213,6 +255,11 @@ For each paper figure you'll use:
 7. **The framework banner is optional too — same deliberate judgment, applied to the top.** A poster does not *have* to open with a `FRAMEWORK` / TL;DR strip. Keep the `.framework-banner` only when the paper genuinely compresses to one sentence plus 2–4 headline numbers worth reading from 2 m. If the contribution doesn't reduce to a single line, or the opening is better carried by a hero figure (`landscape_hero`) or by the first column itself, **delete the whole `.framework-banner` block** and let the body grid absorb the height (then rebalance through the Step 4 measure loop). A banner that merely paraphrases the title or pads generic stats is noise at the poster's most valuable position — worse than none. **When content is overflowing, this banner is likewise among the first things to cut** — it holds the most valuable real estate for often the least load-bearing content, so reclaiming it for the body is usually the right trade and you shouldn't hesitate. Still, judge on merit, not pressure alone: a true one-line TL;DR with live headline numbers can be worth keeping even on a tight sheet. **A method figure in the banner usually needs no caption** — the banner's text block beside it already explains the method, so a figcaption just says it twice, and a long one is exactly what stretches the figure slot and strands the image with a dead band beside it (`polish` flags this as `BANNER/IMAGE-SLOT`). Default to a **captionless** `banner-figure` (`<figure class="banner-figure"><img …></figure>` — see COMPONENTS.md), never a hand-rolled `.fb-fig` or a bare `<img class="w-100">`. If a figure genuinely needs panel labels, bake them into the image or keep them to **one short** `<figcaption>` line (the component bounds the caption to the image width); centre a block image with `margin-inline:auto`, not `text-align:center`.
 
 A gallery template is a **scaffold**: it passes `preflight` (structure) as shipped, but with figures commented out and copy as `TODO` stubs it is **expected to fail `measure`/`polish`** (columns only fill the top, so the column-bottom spread and gap-to-footer are far out of band). Those two gates judge a *filled* poster — they go green only after Steps 4–6 below, once you've added real content and balanced the columns. Don't try to "fix" a fresh scaffold to pass `measure`; fill it first.
+
+**Hero-template notes (`landscape_hero`).** Two things save several render iterations:
+
+1. **Generate the hero figure at the stage's pixel size.** The hero stage renders large (~3200×2000px for a 60×36in poster). Export the hero image at **≥ that width and near the stage's aspect ratio (~1.58:1)** — a smaller image can't fill the stage (with the shipped `object-fit:contain` fill it upscales blurry; with a `width:auto` variant it renders small and centered with big voids). `polish` warns **HERO/UNDER-RESOLVED** when a raster hero is below the rendered stage width. Read the stage box once with a quick Playwright `getBoundingClientRect()` on `.hero-stage`, then match the figure's px + AR to it.
+2. **Plan a beside-text figure for the supporting column.** The right-hand column is usually text-light and cannot bottom-align with a tall hero on prose alone — the natural content ends far short and `measure` reports a big inter-card void. Don't pad with whitespace or shrink a centered figure into side-voids (trips FIG/WIDE). Instead put a second real figure **floated beside the text** (`.fig-wrap` + `.ff-fig`, `data-fig-layout="beside-text"`) as the **last card**, so it fills height efficiently and its width is a clean alignment lever.
 
 Tools live in `tools/` and read `@page` from the HTML, so they're canvas-agnostic — the same commands work for ICLR portrait and ICML landscape.
 
@@ -343,6 +390,8 @@ Thresholds are tunable via `--wide-min-ratio` / `--square-min-ratio` / `--tall-m
 A figure whose `<img>` fails to load (missing file, 404, or unreachable remote URL) reports zero natural size and warns as **FIG/BROKEN** — it will be blank in print. An SVG legitimately reports zero intrinsic size, so it's exempt from FIG/BROKEN — but the AR sizing gates **still apply to it**, computed from its **rendered** aspect ratio (so a too-small/too-wide SVG figure is not silently exempt). The probe covers both card and hero-panel `<img>` (the hero centerpiece is the worst image to silently lose). One known gap: an SVG served from an extensionless URL still slips the FIG/BROKEN exemption heuristic (gets wrongly flagged broken).
 
 **Hero figures aren't exempt from sizing — HERO/STAGE-LETTERBOX.** The card-width AR gates above (FIG/WIDE etc.) don't apply to a hero panel, but a hero figure can still waste its space: a narrow-aspect picture dropped into a wide-but-**short** `.hero-stage` is height-constrained and strands itself with big symmetric side voids (a 2:1 panorama height-capped in a 5:1 stage fills ~35 % of the width). **HERO/STAGE-LETTERBOX** fires when the picture fills < 55 % of the stage width *while* the stage is much wider (relative to the image AR) than the image needs, with symmetric voids. The usual root cause is cramming a second large figure into the hero so the main figure loses vertical budget — move the secondary diagram into a card / the supporting column, or constrain the stage width toward the image's aspect ratio. A genuine full-bleed hero (image AR ≈ stage AR, picture fills the width) never trips it.
+
+**A hero figure also can't be under-resolved — HERO/UNDER-RESOLVED.** The stage renders large (~3200px wide at 60×36in); a raster hero whose natural width is below the rendered stage width can't fill it at native resolution (small-and-centered with `width:auto`, or upscaled-blurry with the shipped `object-fit:contain` fill). Fix: regenerate the figure at **≥ the stage pixel width and near its AR** (see Step 3 Hero-template notes). SVGs are resolution-independent and exempt. Tune the floor with `--hero-min-res-ratio` (default 1.0×).
 
 **A wide, short footer-strip can reclaim its title-row height — the `vrail` modifier.** When a bottom band is wide and short and a horizontal title row eats height the body could use, move the title into a **narrow left rail** so the body takes the full strip height. This is the content-agnostic `vrail` modifier (COMPONENTS.md): it suits any wide-short full-width band — a *row of small example figures* (a benchmark / task gallery) is the common case (the figures enlarge), but any other wide-short band you author works the same — a metrics row, say. The `.num` badge stays upright on top and the title's words **stack one per horizontal line** (every word reads normally — never rotated/sideways), centered, which also evens out uneven word lengths. An over-long word is broken with a soft hyphen `&shy;` at a sensible syllable point **you (the agent) judge** — not `hyphens: auto`, which no-ops in the headless renderer and lets the word overflow. Mark the title `data-vrail-title` so the deliberately narrow stack is exempt from the WIDOW check. **Only on a wide, short, full-width strip** — never a narrow column card, where the rail eats scarce horizontal width instead of freeing it (a title too long to fit without several hyphenations is the signal to shorten it or stay horizontal).
 

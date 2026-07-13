@@ -216,6 +216,14 @@ def build_parser() -> argparse.ArgumentParser:
              "hero where image AR ~= stage AR",
     )
     ppl.add_argument(
+        "--hero-min-res-ratio", type=float,
+        default=_polish.DEFAULT_HERO_MIN_RES_RATIO,
+        help="HERO/UNDER-RESOLVED: a raster hero figure whose natural width "
+             "is below this fraction of the rendered hero-stage width can't "
+             "fill the stage at native resolution (default %(default)s); "
+             "SVGs are exempt",
+    )
+    ppl.add_argument(
         "--beside-void-ratio", type=float,
         default=_polish.DEFAULT_BESIDE_VOID_RATIO,
         help="FIG/BESIDE-TEXT-VOID: a figure floated beside text whose "

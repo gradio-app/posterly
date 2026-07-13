@@ -278,6 +278,51 @@ def test_hero_fixed_box_contain_letterbox_fires(
     assert rc == 0
 
 
+def test_hero_under_resolved_fires(tmp_path, monkeypatch, capsys) -> None:
+    """A raster hero whose natural width is below the stage's rendered width
+    cannot fill the stage at native resolution -> HERO/UNDER-RESOLVED."""
+    under = {
+        "src": "images/lowres.png", "role": "hero", "obj_fit": "contain",
+        "rendered_w": 3246.0, "rendered_h": 2058.0,
+        "card_w": 3370.0, "stage_w": 3246.0, "stage_h": 2058.0,
+        "off_left": 0.0, "off_right": 0.0,
+        "natural_w": 1669.0, "natural_h": 1058.0,   # < stage 3246 -> soft
+    }
+    combined, rc = _run(
+        monkeypatch, tmp_path, capsys,
+        {"figures": [under], "orphans": [], "cols": []},
+    )
+    assert "HERO/UNDER-RESOLVED" in combined
+    assert "lowres.png" in combined
+    assert rc == 0
+
+
+def test_hero_high_res_not_flagged(tmp_path, monkeypatch, capsys) -> None:
+    """A raster hero at >= the stage pixel size (and an SVG, resolution-free)
+    must NOT trip HERO/UNDER-RESOLVED."""
+    hires = {
+        "src": "images/hires.png", "role": "hero", "obj_fit": "contain",
+        "rendered_w": 3246.0, "rendered_h": 2058.0,
+        "card_w": 3370.0, "stage_w": 3246.0, "stage_h": 2058.0,
+        "off_left": 0.0, "off_right": 0.0,
+        "natural_w": 3458.0, "natural_h": 2191.0,   # >= stage -> fine
+    }
+    combined, rc = _run(
+        monkeypatch, tmp_path, capsys,
+        {"figures": [hires], "orphans": [], "cols": []},
+    )
+    assert "HERO/UNDER-RESOLVED" not in combined
+    assert rc == 0
+    svg = {**hires, "src": "images/vec.svg", "natural_w": 0.0,
+           "natural_h": 0.0}
+    combined2, rc2 = _run(
+        monkeypatch, tmp_path, capsys,
+        {"figures": [svg], "orphans": [], "cols": []},
+    )
+    assert "HERO/UNDER-RESOLVED" not in combined2
+    assert rc2 == 0
+
+
 def test_beside_text_void_fires(tmp_path, monkeypatch, capsys) -> None:
     """A figure floated beside text whose text stops well short of the figure
     bottom leaves an L-shaped void -> FIG/BESIDE-TEXT-VOID."""

@@ -75,6 +75,16 @@ DEFAULT_TALL_MIN_RATIO = 0.36
 DEFAULT_HERO_LETTERBOX_FILL = 0.55
 DEFAULT_HERO_LETTERBOX_AR_MULT = 1.6
 
+# Hero-stage under-resolution (Gate A, hero branch). The hero is the poster's
+# centerpiece and its stage renders large (~3200px wide for a 60x36in poster).
+# A raster whose natural width is below the stage's rendered width cannot fill
+# it at native resolution: with `width:auto` it renders small and centered
+# (big voids the LETTERBOX check can miss when AR ~= stage AR); with
+# `width:100%` it upscales and prints soft. HERO/UNDER-RESOLVED fires when a
+# raster hero image's natural width is below RATIO x the stage width. SVGs are
+# resolution-independent and exempt.
+DEFAULT_HERO_MIN_RES_RATIO = 1.0
+
 # Beside-text float void (Gate A2). A figure floated beside text
 # (`data-fig-layout="beside-text"` inside a `.fig-wrap`) whose wrapping text
 # stops more than this fraction of the figure's height short of the figure
@@ -1012,6 +1022,8 @@ def cmd_polish(args: argparse.Namespace) -> int:
         args, "hero_letterbox_fill", DEFAULT_HERO_LETTERBOX_FILL)
     hero_ar_mult = getattr(
         args, "hero_letterbox_ar_mult", DEFAULT_HERO_LETTERBOX_AR_MULT)
+    hero_min_res = getattr(
+        args, "hero_min_res_ratio", DEFAULT_HERO_MIN_RES_RATIO)
     for f in data.get("figures", []):
         rw = float(f["rendered_w"])
         rh = float(f.get("rendered_h", 0.0))
@@ -1084,6 +1096,19 @@ def cmd_polish(args: argparse.Namespace) -> int:
             sh = float(f.get("stage_h", 0) or 0)
             ol = f.get("off_left")
             orr = f.get("off_right")
+            # Under-resolution: a raster hero smaller than the rendered stage
+            # can't fill it at native resolution (renders small/centered with
+            # width:auto, or upscales blurry with width:100%). Independent of
+            # layout, so it's checked before LETTERBOX. SVGs are exempt.
+            if not is_svg and nw > 0 and sw > 0 and nw < hero_min_res * sw:
+                warns.append(
+                    f"HERO/UNDER-RESOLVED: '{ascii_safe(f['src'])}' natural "
+                    f"width {int(nw)}px is below the hero-stage's rendered "
+                    f"{sw:.0f}px, so it cannot fill the stage at native "
+                    f"resolution (renders small/centered, or upscales blurry). "
+                    f"Regenerate the figure at >= the stage pixel size "
+                    f"(ideally 1.5-2x) and near the stage's aspect ratio."
+                )
             if sw > 0 and sh > 0 and ol is not None and orr is not None:
                 fill = content_w / sw
                 stage_ar = sw / sh
