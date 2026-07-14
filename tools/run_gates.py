@@ -322,7 +322,10 @@ def _build_argv(
     if gate == "polish":
         argv = [py, str(scripts_dir / "poster_check.py"), "polish", html]
         if opts.strict_polish:
-            argv += ["--strict"]
+            # A printed poster needs a small breathing margin at the bottom
+            # of a card.  Fifteen percent still rejects a sparse panel while
+            # avoiding false failures for a visually complete chart card.
+            argv += ["--max-card-trailing", "0.15", "--strict"]
         return argv
 
     raise ValueError(f"unknown gate: {gate}")  # pragma: no cover
@@ -541,7 +544,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--strict-polish", action="store_true",
         help="treat polish warnings as failures "
-             "(maps to poster_check.py polish --strict)",
+             "(maps to poster_check.py polish --max-card-trailing 0.15 --strict)",
     )
     p.add_argument(
         "--tokens", default=None,
