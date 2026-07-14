@@ -268,27 +268,31 @@ For each paper figure you'll use:
 7. **The framework banner is optional too — same deliberate judgment, applied to the top.** A poster does not *have* to open with a `FRAMEWORK` / TL;DR strip. Keep the `.framework-banner` only when the paper genuinely compresses to one sentence plus 2–4 headline numbers worth reading from 2 m. If the contribution doesn't reduce to a single line, or the opening is better carried by a hero figure (`landscape_hero`) or by the first column itself, **delete the whole `.framework-banner` block** and let the body grid absorb the height (then rebalance through the Step 4 measure loop). A banner that merely paraphrases the title or pads generic stats is noise at the poster's most valuable position — worse than none. **When content is overflowing, this banner is likewise among the first things to cut** — it holds the most valuable real estate for often the least load-bearing content, so reclaiming it for the body is usually the right trade and you shouldn't hesitate. Still, judge on merit, not pressure alone: a true one-line TL;DR with live headline numbers can be worth keeping even on a tight sheet. **A method figure in the banner usually needs no caption** — the banner's text block beside it already explains the method, so a figcaption just says it twice, and a long one is exactly what stretches the figure slot and strands the image with a dead band beside it (`polish` flags this as `BANNER/IMAGE-SLOT`). Default to a **captionless** `banner-figure` (`<figure class="banner-figure"><img …></figure>` — see COMPONENTS.md), never a hand-rolled `.fb-fig` or a bare `<img class="w-100">`. If a figure genuinely needs panel labels, bake them into the image or keep them to **one short** `<figcaption>` line (the component bounds the caption to the image width); centre a block image with `margin-inline:auto`, not `text-align:center`.
 
 Create `poster_embed.html` for the pinned **Reproduction poster** figure cell
-at the top of the logbook. It keeps the rendered poster image self-contained
-and adds transparent hotspot buttons over major claim/result sections when
-useful. Each hotspot must:
+at the top of the logbook. Mark each meaningful poster section with
+`data-logbook-target="<page-slug>"` (and optionally
+`data-logbook-label="…"`), then generate the embed after rendering:
+
+```bash
+python tools/render_preview.py poster.html --png poster_preview.png
+python tools/render_logbook_embed.py poster.html poster_preview.png \
+  --logbook-manifest .trackio/logbook/logbook.json --out poster_embed.html
+```
+
+The tool derives hotspot geometry from the rendered, annotated elements and
+rejects targets absent from the logbook manifest. Do not hand-measure or
+hard-code hotspot rectangles. It emits a persistent `Open details ↗` pill in
+the upper-right of every interactive region; the pill remains visible before
+hover, while hover/focus adds the full-region highlight. Do not hide, replace,
+or manually position this affordance. Each annotated section must:
 
 - map to a real logbook **page slug** (for example `claim-2-horizontal-scaling`),
   not an invented URL or a cell id;
 - use a descriptive `aria-label` and visible hover/focus outline; and
 - send the parent logbook a navigation message on click or keyboard activation:
 
-```html
-<button class="trackio-poster-hotspot" aria-label="Open Claim 2: horizontal scaling"
-  style="left:50%;top:55%;width:24%;height:31%"
-  onclick="parent.postMessage({type:'trackio-logbook:navigate',target:'claim-2-horizontal-scaling'}, '*')">
-</button>
-```
-
-Use a positioned wrapper around the data-URI `<img>` and give the hotspot
-buttons `position:absolute`, a transparent background, `cursor:pointer`, and a
-clear `:hover, :focus-visible` outline. Do not make mere hover navigate: it is
-too easy to trigger while reading a dense poster. Clicking (or pressing Enter /
-Space) is the navigation action; hover is only the affordance.
+Do not make mere hover navigate: it is too easy to trigger while reading a
+dense poster. The generated embed uses click/keyboard navigation and hover only
+as an affordance.
 
 Only annotate sections that lead to useful evidence pages: claims, core method,
 main results, source/scope audit, and conclusion. Leave decorative elements,
@@ -297,6 +301,13 @@ logos, and dense text blocks alone. If no useful destinations exist,
 wrapper with no hotspot buttons. Do not create a separate PNG-only fallback.
 Run the normal Posterly gates on `poster.html`; `poster_embed.html` is the
 logbook wrapper, not the print artifact.
+
+**Content-density rule.** A passing geometry gate is not enough. Do not use
+equal-height cards to stretch short prose across a poster. Every large card
+must earn its area with a real figure, result table, equation, or substantive
+evidence; otherwise merge it with a related card, reduce the card's height, or
+choose a denser template. Treat `CARD/TRAILING` / `CARD/INNER-VOID` warnings as
+release blockers for a logbook poster.
 
 A gallery template is a **scaffold**: it passes `preflight` (structure) as shipped, but with figures commented out and copy as `TODO` stubs it is **expected to fail `measure`/`polish`** (columns only fill the top, so the column-bottom spread and gap-to-footer are far out of band). Those two gates judge a *filled* poster — they go green only after Steps 4–6 below, once you've added real content and balanced the columns. Don't try to "fix" a fresh scaffold to pass `measure`; fill it first.
 
@@ -311,11 +322,11 @@ Tools live in `tools/` and read `@page` from the HTML, so they're canvas-agnosti
 
 ### Step 4 — Render + measure loop (HARD GATE)
 
-**Default driver: `run_gates.py`.** After every layout change, run the whole sequence in one shot — `preflight` → `style` → `measure` → `polish` in load-bearing order (plus the `asset` gate only when you pass `--manifest`; otherwise it's reported `NOT_RUN` and excluded from `overall`), into one `GATE_REPORT.json` (see **§Enhanced gates & fix discipline**):
+**Default driver: `run_gates.py`.** After every layout change, run the whole sequence in one shot — `preflight` → `style` → `measure` → `polish` in load-bearing order (plus the `asset` gate only when you pass `--manifest`; otherwise it's reported `NOT_RUN` and excluded from `overall`), into one `GATE_REPORT.json` (see **§Enhanced gates & fix discipline**). Trackio logbook posters must use `--strict-polish`: a visible polish warning is a release blocker for the pinned poster.
 
 ```bash
 # After every layout change (the default loop driver):
-python <skill>/tools/run_gates.py poster.html --report GATE_REPORT.json
+python <skill>/tools/run_gates.py poster.html --strict-polish --report GATE_REPORT.json
 ```
 
 This is what wires the **`style`** hard gate into every iteration — the standalone `measure` call below does **not** run `style`. posterly runs `style` with rules **4 (≤2 hue families) and 5 (no gradients) disabled by default**: palette and gradient choices are yours, while the rest of the design-system discipline stays enforced. Override with `--style-disable ''` to enforce all 13, or e.g. `--style-disable 4,5,6,7` to also drop the font rules.
@@ -510,7 +521,7 @@ Concrete bad case (prior session): the SnipSnap Motivation column shipped with a
 
 Enforcement is two-layered. `measure` **hard-fails** any column whose gap between consecutive stacked cards exceeds `--max-intercard-gap` (default 50 px, absolute) — this is the backstop that catches the space-between shortcut regardless of mechanism (added after a production poster shipped 98–135 px voids with every gate green: spread read 0.00 px because space-between pinned the last card to the bottom, and the relative polish warn below stayed silent at 4–6 % of a 36-inch column). `polish` additionally warns earlier (emitted as `SPACE-BETWEEN`), when a column with computed `justify-content: space-between` has an inter-card gap exceeding 5 % of the column's height. Tune via `--max-space-between-fill`.
 
-**The same trap, one card.** A single card set to `flex: 1` (the standard way to make its column reach the footer and satisfy `measure`'s spread/gap gates) is measured only by its **bottom edge** — a card stretched to twice its content's height passes `measure` with spread = 0 while the lower half is blank white. `measure` can't catch it (it checks only the bottom edge), so **`polish` does**: the **CARD/TRAILING** warning fires when a card leaves more than `--max-card-trailing` (default 10 %) of its height blank below its last line of content. A green bottom-edge gate is necessary, not sufficient. Never stretch a block to create whitespace just to make the layout "fit." Fix it like Gate C — fill the slack with substance (aim ≥ ~80 % full, not 46 %): a bigger paper figure first, real paper content when the figure can't carry it, per the figure-vs-prose order in *"Fill means substance"* below; if the section is genuinely that sparse, choose a **smaller canvas** instead — a single paragraph does not belong on a 60-inch sheet. A half-empty card reads as "ran out of things to say" and is a failed poster even when every gate is green.
+**The same trap, one card.** A single card set to `flex: 1` (the standard way to make its column reach the footer and satisfy `measure`'s spread/gap gates) is measured only by its **bottom edge** — a card stretched to twice its content's height passes `measure` with spread = 0 while the lower half is blank white. `measure` can't catch it (it checks only the bottom edge), so **`polish` does**: the **CARD/TRAILING** warning fires when a card leaves more than `--max-card-trailing` (default 10 %) of its height blank below its last line of content. Trackio logbook's `run_gates.py --strict-polish` uses a 15 % allowance for intentional print-layout breathing room, but it still blocks sparse cards. A green bottom-edge gate is necessary, not sufficient. Never stretch a block to create whitespace just to make the layout "fit." Fix it like Gate C — fill the slack with substance (aim ≥ ~80 % full, not 46 %): a bigger paper figure first, real paper content when the figure can't carry it, per the figure-vs-prose order in *"Fill means substance"* below; if the section is genuinely that sparse, choose a **smaller canvas** instead — a single paragraph does not belong on a 60-inch sheet. A half-empty card reads as "ran out of things to say" and is a failed poster even when every gate is green.
 
 **The same trap, mid-card — `CARD/INNER-VOID`.** A sibling failure mode: a *row of equal-height cards* (`grid`/`flex` + `align-items: stretch`) whose contents differ in height, where the short card pins its tail — a "Why it matters" footer, a takeaway line — to the bottom with `margin-top: auto` (or `justify-content: space-*` **on the card**). The taller card sets the row height; the short card stretches to match, and the slack opens as a band **in the middle of the card** — below the last real block, above the pinned tail. Because the tail still sits on the card's bottom edge, `CARD/TRAILING` reads ~0 and stays silent, and `measure` (bottom-edge only) passes. `polish` catches it as **CARD/INNER-VOID**: for **every `.card`** — not only the `data-measure-role`-tagged ones, so an agent-authored feature band is covered too — it measures the largest vertical gap between two consecutive stacked children and warns when that gap exceeds the card's stated `row-gap` by more than `--max-card-inner-void` (default 8 % of card height) **and** an absolute `--min-card-inner-void-px` floor (default 24 px, so a sub-line gap on a small card stays quiet). Side-by-side children (a flex row, a float) overlap vertically and never count — only a real vertical void registers. **Fix it like Gate C**: fill the short card with substance (a bigger figure first, then real paper content), or — when the cards genuinely differ in length — **drop the bottom-pin / equal-height stretch** so each card hugs its own content (the footer rows then no longer align across the row, but there is no void). This was a live miss: a 3-card "Main Technical Contributions" band whose middle card carried one equation vs two in its neighbours pinned its footer with `margin-top: auto`, opening a ~14 %-of-card void between the formula and the footer — every gate green, because the band's cards carried no `data-measure-role` (so `CARD/TRAILING`/`measure` never sampled them) and the void sat mid-card (so the bottom-edge checks saw nothing). The lesson for authoring: a content block — including one in a custom feature band — should carry the `.card` class so the void gates see it, and if a row of cards will hold unequal content, do **not** reach for `margin-top: auto` + `align-items: stretch` to fake a level footer row.
 
@@ -604,6 +615,7 @@ The bias is **send when uncertain** — cost 2-3 min, against a silent error in 
 tools/
 ├── poster_check.py        ← CLI: measure / preflight / polish / verify-final
 ├── render_preview.py      ← CLI: print-emulated PDF + thumbnail PNG
+├── render_logbook_embed.py ← derive validated Trackio hotspot embed from poster sections
 ├── run_gates.py           ← orchestrator: preflight→style→asset→measure→polish → GATE_REPORT.json   (vendored, ARIS)
 ├── style_check.py         ← HARD style gate: token-only colors, no inline style, font/size scale     (vendored, ARIS)
 ├── asset_check.py         ← real-figure provenance gate (data-source + FIGURE_MANIFEST)               (vendored, ARIS)
