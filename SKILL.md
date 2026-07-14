@@ -261,10 +261,11 @@ For each paper figure you'll use:
 
 ### Trackio logbook poster embeds
 
-When a poster is destined for a Trackio logbook, make the in-logbook version
-explorable without changing the print poster. Keep the rendered poster image
-self-contained, then create a separate `poster_embed.html` with transparent
-hotspot buttons over the major claim/result sections. Each hotspot must:
+When a poster is destined for a Trackio logbook, use `poster_embed.html` as the
+HTML in the pinned **Reproduction poster** figure cell at the top of the
+logbook. It keeps the rendered poster image self-contained and, when useful,
+adds transparent hotspot buttons over major claim/result sections. Each hotspot
+must:
 
 - map to a real logbook **page slug** (for example `claim-2-horizontal-scaling`),
   not an invented URL or a cell id;
@@ -286,10 +287,11 @@ Space) is the navigation action; hover is only the affordance.
 
 Only annotate sections that lead to useful evidence pages: claims, core method,
 main results, source/scope audit, and conclusion. Leave decorative elements,
-logos, and dense text blocks alone. If the logbook has no meaningful matching
-page, ship the normal image-only embed instead. Run the normal Posterly gates on
-`poster.html`; `poster_embed.html` is an interactive logbook wrapper, not the
-print artifact.
+logos, and dense text blocks alone. If no useful destinations exist,
+`poster_embed.html` is still the fallback: emit the same self-contained HTML
+wrapper with no hotspot buttons. Do not create a separate PNG-only fallback.
+Run the normal Posterly gates on `poster.html`; `poster_embed.html` is the
+logbook wrapper, not the print artifact.
 
 A gallery template is a **scaffold**: it passes `preflight` (structure) as shipped, but with figures commented out and copy as `TODO` stubs it is **expected to fail `measure`/`polish`** (columns only fill the top, so the column-bottom spread and gap-to-footer are far out of band). Those two gates judge a *filled* poster — they go green only after Steps 4–6 below, once you've added real content and balanced the columns. Don't try to "fix" a fresh scaffold to pass `measure`; fill it first.
 
