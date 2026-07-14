@@ -259,6 +259,38 @@ For each paper figure you'll use:
 6. **The takeaways strip is optional — judge it deliberately; don't default to keeping it *or* to cutting it.** The landscape scaffolds ship with a bottom takeaways strip, but it earns its place only as a genuine 60-second narrative exit (Idea / Method / Result / Practical). Keep it when it lands a conclusion the final column cards don't already; **delete the whole `.takeaways-strip` block** when those cards already close the argument or it would just restate the body — a redundant strip is worse than none (portrait templates omit it by design). **When the poster is over-full** — content fighting to fit, font sizes creeping toward the venue's floor, cards cramming together — this strip is the *first* block to drop to win the body its room back, and you should reach for that readily: cutting a merely-adequate takeaways row makes a better poster than shrinking everything to keep it. But the call is about *content*, not pressure: don't delete a strip that genuinely closes the poster just because space is tight, and don't keep one that isn't carrying its weight. Same spirit as *"Fill means substance"* below: a block stays only if it does real work.
 7. **The framework banner is optional too — same deliberate judgment, applied to the top.** A poster does not *have* to open with a `FRAMEWORK` / TL;DR strip. Keep the `.framework-banner` only when the paper genuinely compresses to one sentence plus 2–4 headline numbers worth reading from 2 m. If the contribution doesn't reduce to a single line, or the opening is better carried by a hero figure (`landscape_hero`) or by the first column itself, **delete the whole `.framework-banner` block** and let the body grid absorb the height (then rebalance through the Step 4 measure loop). A banner that merely paraphrases the title or pads generic stats is noise at the poster's most valuable position — worse than none. **When content is overflowing, this banner is likewise among the first things to cut** — it holds the most valuable real estate for often the least load-bearing content, so reclaiming it for the body is usually the right trade and you shouldn't hesitate. Still, judge on merit, not pressure alone: a true one-line TL;DR with live headline numbers can be worth keeping even on a tight sheet. **A method figure in the banner usually needs no caption** — the banner's text block beside it already explains the method, so a figcaption just says it twice, and a long one is exactly what stretches the figure slot and strands the image with a dead band beside it (`polish` flags this as `BANNER/IMAGE-SLOT`). Default to a **captionless** `banner-figure` (`<figure class="banner-figure"><img …></figure>` — see COMPONENTS.md), never a hand-rolled `.fb-fig` or a bare `<img class="w-100">`. If a figure genuinely needs panel labels, bake them into the image or keep them to **one short** `<figcaption>` line (the component bounds the caption to the image width); centre a block image with `margin-inline:auto`, not `text-align:center`.
 
+### Trackio logbook poster embeds
+
+When a poster is destined for a Trackio logbook, make the in-logbook version
+explorable without changing the print poster. Keep the rendered poster image
+self-contained, then create a separate `poster_embed.html` with transparent
+hotspot buttons over the major claim/result sections. Each hotspot must:
+
+- map to a real logbook **page slug** (for example `claim-2-horizontal-scaling`),
+  not an invented URL or a cell id;
+- use a descriptive `aria-label` and visible hover/focus outline; and
+- send the parent logbook a navigation message on click or keyboard activation:
+
+```html
+<button class="trackio-poster-hotspot" aria-label="Open Claim 2: horizontal scaling"
+  style="left:50%;top:55%;width:24%;height:31%"
+  onclick="parent.postMessage({type:'trackio-logbook:navigate',target:'claim-2-horizontal-scaling'}, '*')">
+</button>
+```
+
+Use a positioned wrapper around the data-URI `<img>` and give the hotspot
+buttons `position:absolute`, a transparent background, `cursor:pointer`, and a
+clear `:hover, :focus-visible` outline. Do not make mere hover navigate: it is
+too easy to trigger while reading a dense poster. Clicking (or pressing Enter /
+Space) is the navigation action; hover is only the affordance.
+
+Only annotate sections that lead to useful evidence pages: claims, core method,
+main results, source/scope audit, and conclusion. Leave decorative elements,
+logos, and dense text blocks alone. If the logbook has no meaningful matching
+page, ship the normal image-only embed instead. Run the normal Posterly gates on
+`poster.html`; `poster_embed.html` is an interactive logbook wrapper, not the
+print artifact.
+
 A gallery template is a **scaffold**: it passes `preflight` (structure) as shipped, but with figures commented out and copy as `TODO` stubs it is **expected to fail `measure`/`polish`** (columns only fill the top, so the column-bottom spread and gap-to-footer are far out of band). Those two gates judge a *filled* poster — they go green only after Steps 4–6 below, once you've added real content and balanced the columns. Don't try to "fix" a fresh scaffold to pass `measure`; fill it first.
 
 **Hero-template notes (`landscape_hero`).** Two things save several render iterations:
