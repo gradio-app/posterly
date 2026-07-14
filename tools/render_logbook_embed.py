@@ -101,6 +101,7 @@ def _main() -> int:
     buttons = "\n".join(
         '<button class="trackio-poster-hotspot" '
         f'style="left:{h["left"]:.4f}%;top:{h["top"]:.4f}%;width:{h["width"]:.4f}%;height:{h["height"]:.4f}%" '
+        'data-logbook-affordance="Open details ↗" '
         f'aria-label="Open {html.escape(h["label"], quote=True)}" '
         f'onclick="parent.postMessage({{type:\'trackio-logbook:navigate\',target:\'{html.escape(h["target"], quote=True)}\'}}, \'*\')"></button>'
         for h in hotspots
@@ -111,6 +112,7 @@ def _main() -> int:
         "body{margin:0;background:#fff}.trackio-poster{position:relative;line-height:0}"
         ".trackio-poster img{display:block;width:100%;height:auto}"
         ".trackio-poster-hotspot{position:absolute;border:3px solid transparent;background:transparent;cursor:pointer;border-radius:12px}"
+        ".trackio-poster-hotspot::after{content:attr(data-logbook-affordance);position:absolute;top:2%;right:2%;padding:.45em .7em;border:1px solid rgba(15,118,110,.38);border-radius:999px;background:rgba(255,255,255,.94);box-shadow:0 1px 3px rgba(15,23,42,.18);color:#0f766e;font:600 clamp(10px,1.6vw,15px)/1 Arial,sans-serif;line-height:1;opacity:.92;white-space:nowrap;pointer-events:none}"
         ".trackio-poster-hotspot:hover,.trackio-poster-hotspot:focus-visible{border-color:#0f766e;background:rgba(13,148,136,.12);outline:none}"
         "</style></head><body><div class=\"trackio-poster\">"
         f"<img src=\"data:image/png;base64,{image}\" alt=\"Interactive reproduction poster\">{buttons}"

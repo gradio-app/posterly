@@ -280,7 +280,10 @@ python tools/render_logbook_embed.py poster.html poster_preview.png \
 
 The tool derives hotspot geometry from the rendered, annotated elements and
 rejects targets absent from the logbook manifest. Do not hand-measure or
-hard-code hotspot rectangles. Each annotated section must:
+hard-code hotspot rectangles. It emits a persistent `Open details ↗` pill in
+the upper-right of every interactive region; the pill remains visible before
+hover, while hover/focus adds the full-region highlight. Do not hide, replace,
+or manually position this affordance. Each annotated section must:
 
 - map to a real logbook **page slug** (for example `claim-2-horizontal-scaling`),
   not an invented URL or a cell id;
