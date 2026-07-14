@@ -268,27 +268,28 @@ For each paper figure you'll use:
 7. **The framework banner is optional too — same deliberate judgment, applied to the top.** A poster does not *have* to open with a `FRAMEWORK` / TL;DR strip. Keep the `.framework-banner` only when the paper genuinely compresses to one sentence plus 2–4 headline numbers worth reading from 2 m. If the contribution doesn't reduce to a single line, or the opening is better carried by a hero figure (`landscape_hero`) or by the first column itself, **delete the whole `.framework-banner` block** and let the body grid absorb the height (then rebalance through the Step 4 measure loop). A banner that merely paraphrases the title or pads generic stats is noise at the poster's most valuable position — worse than none. **When content is overflowing, this banner is likewise among the first things to cut** — it holds the most valuable real estate for often the least load-bearing content, so reclaiming it for the body is usually the right trade and you shouldn't hesitate. Still, judge on merit, not pressure alone: a true one-line TL;DR with live headline numbers can be worth keeping even on a tight sheet. **A method figure in the banner usually needs no caption** — the banner's text block beside it already explains the method, so a figcaption just says it twice, and a long one is exactly what stretches the figure slot and strands the image with a dead band beside it (`polish` flags this as `BANNER/IMAGE-SLOT`). Default to a **captionless** `banner-figure` (`<figure class="banner-figure"><img …></figure>` — see COMPONENTS.md), never a hand-rolled `.fb-fig` or a bare `<img class="w-100">`. If a figure genuinely needs panel labels, bake them into the image or keep them to **one short** `<figcaption>` line (the component bounds the caption to the image width); centre a block image with `margin-inline:auto`, not `text-align:center`.
 
 Create `poster_embed.html` for the pinned **Reproduction poster** figure cell
-at the top of the logbook. It keeps the rendered poster image self-contained
-and adds transparent hotspot buttons over major claim/result sections when
-useful. Each hotspot must:
+at the top of the logbook. Mark each meaningful poster section with
+`data-logbook-target="<page-slug>"` (and optionally
+`data-logbook-label="…"`), then generate the embed after rendering:
+
+```bash
+python tools/render_preview.py poster.html --png poster_preview.png
+python tools/render_logbook_embed.py poster.html poster_preview.png \
+  --logbook-manifest .trackio/logbook/logbook.json --out poster_embed.html
+```
+
+The tool derives hotspot geometry from the rendered, annotated elements and
+rejects targets absent from the logbook manifest. Do not hand-measure or
+hard-code hotspot rectangles. Each annotated section must:
 
 - map to a real logbook **page slug** (for example `claim-2-horizontal-scaling`),
   not an invented URL or a cell id;
 - use a descriptive `aria-label` and visible hover/focus outline; and
 - send the parent logbook a navigation message on click or keyboard activation:
 
-```html
-<button class="trackio-poster-hotspot" aria-label="Open Claim 2: horizontal scaling"
-  style="left:50%;top:55%;width:24%;height:31%"
-  onclick="parent.postMessage({type:'trackio-logbook:navigate',target:'claim-2-horizontal-scaling'}, '*')">
-</button>
-```
-
-Use a positioned wrapper around the data-URI `<img>` and give the hotspot
-buttons `position:absolute`, a transparent background, `cursor:pointer`, and a
-clear `:hover, :focus-visible` outline. Do not make mere hover navigate: it is
-too easy to trigger while reading a dense poster. Clicking (or pressing Enter /
-Space) is the navigation action; hover is only the affordance.
+Do not make mere hover navigate: it is too easy to trigger while reading a
+dense poster. The generated embed uses click/keyboard navigation and hover only
+as an affordance.
 
 Only annotate sections that lead to useful evidence pages: claims, core method,
 main results, source/scope audit, and conclusion. Leave decorative elements,
@@ -297,6 +298,13 @@ logos, and dense text blocks alone. If no useful destinations exist,
 wrapper with no hotspot buttons. Do not create a separate PNG-only fallback.
 Run the normal Posterly gates on `poster.html`; `poster_embed.html` is the
 logbook wrapper, not the print artifact.
+
+**Content-density rule.** A passing geometry gate is not enough. Do not use
+equal-height cards to stretch short prose across a poster. Every large card
+must earn its area with a real figure, result table, equation, or substantive
+evidence; otherwise merge it with a related card, reduce the card's height, or
+choose a denser template. Treat `CARD/TRAILING` / `CARD/INNER-VOID` warnings as
+release blockers for a logbook poster.
 
 A gallery template is a **scaffold**: it passes `preflight` (structure) as shipped, but with figures commented out and copy as `TODO` stubs it is **expected to fail `measure`/`polish`** (columns only fill the top, so the column-bottom spread and gap-to-footer are far out of band). Those two gates judge a *filled* poster — they go green only after Steps 4–6 below, once you've added real content and balanced the columns. Don't try to "fix" a fresh scaffold to pass `measure`; fill it first.
 
@@ -311,11 +319,11 @@ Tools live in `tools/` and read `@page` from the HTML, so they're canvas-agnosti
 
 ### Step 4 — Render + measure loop (HARD GATE)
 
-**Default driver: `run_gates.py`.** After every layout change, run the whole sequence in one shot — `preflight` → `style` → `measure` → `polish` in load-bearing order (plus the `asset` gate only when you pass `--manifest`; otherwise it's reported `NOT_RUN` and excluded from `overall`), into one `GATE_REPORT.json` (see **§Enhanced gates & fix discipline**):
+**Default driver: `run_gates.py`.** After every layout change, run the whole sequence in one shot — `preflight` → `style` → `measure` → `polish` in load-bearing order (plus the `asset` gate only when you pass `--manifest`; otherwise it's reported `NOT_RUN` and excluded from `overall`), into one `GATE_REPORT.json` (see **§Enhanced gates & fix discipline**). Trackio logbook posters must use `--strict-polish`: a visible polish warning is a release blocker for the pinned poster.
 
 ```bash
 # After every layout change (the default loop driver):
-python <skill>/tools/run_gates.py poster.html --report GATE_REPORT.json
+python <skill>/tools/run_gates.py poster.html --strict-polish --report GATE_REPORT.json
 ```
 
 This is what wires the **`style`** hard gate into every iteration — the standalone `measure` call below does **not** run `style`. posterly runs `style` with rules **4 (≤2 hue families) and 5 (no gradients) disabled by default**: palette and gradient choices are yours, while the rest of the design-system discipline stays enforced. Override with `--style-disable ''` to enforce all 13, or e.g. `--style-disable 4,5,6,7` to also drop the font rules.
@@ -604,6 +612,7 @@ The bias is **send when uncertain** — cost 2-3 min, against a silent error in 
 tools/
 ├── poster_check.py        ← CLI: measure / preflight / polish / verify-final
 ├── render_preview.py      ← CLI: print-emulated PDF + thumbnail PNG
+├── render_logbook_embed.py ← derive validated Trackio hotspot embed from poster sections
 ├── run_gates.py           ← orchestrator: preflight→style→asset→measure→polish → GATE_REPORT.json   (vendored, ARIS)
 ├── style_check.py         ← HARD style gate: token-only colors, no inline style, font/size scale     (vendored, ARIS)
 ├── asset_check.py         ← real-figure provenance gate (data-source + FIGURE_MANIFEST)               (vendored, ARIS)
