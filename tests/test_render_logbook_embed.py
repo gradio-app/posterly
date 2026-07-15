@@ -12,11 +12,11 @@ def _hotspot():
     }
 
 
-def test_hotspot_has_persistent_visible_label_and_navigation_message():
+def test_hotspot_has_link_icon_accessible_label_and_navigation_message():
     button = _render_hotspot_button(_hotspot())
 
-    assert ">Open details</span>" in button
-    assert "↗" in button
+    assert "<svg" in button
+    assert ">Open details</span>" not in button
     assert 'aria-label="Open details for Claim 1: benchmark construction"' in button
     assert "trackio-logbook:navigate" in button
     assert "claim-1-benchmark-construction" in button
@@ -25,7 +25,7 @@ def test_hotspot_has_persistent_visible_label_and_navigation_message():
 def test_embed_uses_accessible_minimum_target_size():
     embed = _render_embed("aW1hZ2U=", [_hotspot()])
 
-    assert "min-width:44px" in embed
-    assert "min-height:44px" in embed
+    assert "width:clamp(44px,5vw,60px)" in embed
+    assert ".trackio-poster-hotspot svg{width:62%;height:62%" in embed
     assert "opacity:1" in embed
     assert "clamp(22px,2.4vw,38px)" not in embed

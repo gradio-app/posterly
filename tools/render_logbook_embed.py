@@ -35,7 +35,7 @@ def _render_hotspot_button(hotspot: dict) -> str:
         f'aria-label="Open details for {label}" '
         "onclick=\"parent.postMessage({type:'trackio-logbook:navigate',"
         f"target:'{target}'}}, '*')\">"
-        '<span>Open details</span><span aria-hidden="true">↗</span>'
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.6 13.4a1 1 0 0 0 1.4 0l3-3a3 3 0 0 0-4.2-4.2l-1.7 1.7a1 1 0 1 0 1.4 1.4l1.7-1.7a1 1 0 1 1 1.4 1.4l-3 3a1 1 0 0 0 0 1.4Zm2.8-2.8a1 1 0 0 0-1.4 0l-3 3a1 1 0 0 0 1.4 1.4l3-3a1 1 0 0 0 0-1.4Zm-2.2 4.2-1.7 1.7a1 1 0 1 1-1.4-1.4l1.7-1.7a1 1 0 1 0-1.4-1.4l-1.7 1.7a3 3 0 1 0 4.2 4.2l1.7-1.7a1 1 0 1 0-1.4-1.4Z"/></svg>'
         "</button>"
     )
 
@@ -46,7 +46,8 @@ def _render_embed(image: str, hotspots: list[dict]) -> str:
         '<!doctype html><html><head><meta charset="utf-8"><style>'
         "body{margin:0;background:#fff}.trackio-poster{position:relative;line-height:0}"
         ".trackio-poster img{display:block;width:100%;height:auto}"
-        ".trackio-poster-hotspot{position:absolute;transform:translate(calc(-100% - 8px),8px);min-width:44px;min-height:44px;padding:0 14px;display:flex;align-items:center;justify-content:center;gap:6px;border:1px solid rgba(15,118,110,.3);border-radius:999px;background:rgba(255,255,255,.94);box-shadow:0 2px 6px rgba(15,23,42,.22);color:#0f766e;cursor:pointer;font:700 clamp(12px,1.45vw,16px)/1 system-ui,-apple-system,sans-serif;white-space:nowrap;opacity:1}"
+        ".trackio-poster-hotspot{position:absolute;transform:translate(calc(-100% - 8px),8px);width:clamp(44px,5vw,60px);aspect-ratio:1;padding:0;display:grid;place-items:center;border:1px solid rgba(15,118,110,.3);border-radius:999px;background:rgba(255,255,255,.94);box-shadow:0 2px 6px rgba(15,23,42,.22);color:#0f766e;cursor:pointer;opacity:1}"
+        ".trackio-poster-hotspot svg{width:62%;height:62%;fill:currentColor}"
         ".trackio-poster-hotspot:hover,.trackio-poster-hotspot:focus-visible{background:#fff;box-shadow:0 0 0 3px rgba(13,148,136,.32),0 3px 8px rgba(15,23,42,.24);outline:none}"
         "</style></head><body><div class=\"trackio-poster\">"
         f'<img src="data:image/png;base64,{image}" alt="Interactive reproduction poster">{buttons}'
