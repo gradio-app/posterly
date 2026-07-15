@@ -25,6 +25,36 @@ from _posterly import canvas as _canvas  # noqa: E402
 from _posterly import render as _render  # noqa: E402
 
 
+def _render_hotspot_button(hotspot: dict) -> str:
+    label = html.escape(hotspot["label"], quote=True)
+    target = html.escape(hotspot["target"], quote=True)
+    return (
+        '<button class="trackio-poster-hotspot" '
+        f'style="left:{hotspot["left"] + hotspot["width"]:.4f}%;'
+        f'top:{hotspot["top"]:.4f}%" '
+        f'aria-label="Open details for {label}" '
+        "onclick=\"parent.postMessage({type:'trackio-logbook:navigate',"
+        f"target:'{target}'}}, '*')\">"
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.6 13.4a1 1 0 0 0 1.4 0l3-3a3 3 0 0 0-4.2-4.2l-1.7 1.7a1 1 0 1 0 1.4 1.4l1.7-1.7a1 1 0 1 1 1.4 1.4l-3 3a1 1 0 0 0 0 1.4Zm2.8-2.8a1 1 0 0 0-1.4 0l-3 3a1 1 0 0 0 1.4 1.4l3-3a1 1 0 0 0 0-1.4Zm-2.2 4.2-1.7 1.7a1 1 0 1 1-1.4-1.4l1.7-1.7a1 1 0 1 0-1.4-1.4l-1.7 1.7a3 3 0 1 0 4.2 4.2l1.7-1.7a1 1 0 1 0-1.4-1.4Z"/></svg>'
+        "</button>"
+    )
+
+
+def _render_embed(image: str, hotspots: list[dict]) -> str:
+    buttons = "\n".join(_render_hotspot_button(h) for h in hotspots)
+    return (
+        '<!doctype html><html><head><meta charset="utf-8"><style>'
+        "body{margin:0;background:#fff}.trackio-poster{position:relative;line-height:0}"
+        ".trackio-poster img{display:block;width:100%;height:auto}"
+        ".trackio-poster-hotspot{position:absolute;transform:translate(calc(-100% - 8px),8px);width:clamp(44px,5vw,60px);aspect-ratio:1;padding:0;display:grid;place-items:center;border:1px solid rgba(15,118,110,.3);border-radius:999px;background:rgba(255,255,255,.94);box-shadow:0 2px 6px rgba(15,23,42,.22);color:#0f766e;cursor:pointer;opacity:1}"
+        ".trackio-poster-hotspot svg{width:62%;height:62%;fill:currentColor}"
+        ".trackio-poster-hotspot:hover,.trackio-poster-hotspot:focus-visible{background:#fff;box-shadow:0 0 0 3px rgba(13,148,136,.32),0 3px 8px rgba(15,23,42,.24);outline:none}"
+        "</style></head><body><div class=\"trackio-poster\">"
+        f'<img src="data:image/png;base64,{image}" alt="Interactive reproduction poster">{buttons}'
+        "</div></body></html>"
+    )
+
+
 def _slugs(node: dict) -> set[str]:
     found = {str(node.get("slug", ""))}
     for child in node.get("children", []) or []:
@@ -157,28 +187,8 @@ def _main() -> int:
             return 2
 
     image = base64.b64encode(poster_png.read_bytes()).decode("ascii")
-    buttons = "\n".join(
-        '<button class="trackio-poster-hotspot" '
-        f'style="left:{h["left"] + h["width"]:.4f}%;top:{h["top"]:.4f}%" '
-        f'aria-label="Open details for {html.escape(h["label"], quote=True)}" '
-        f'onclick="parent.postMessage({{type:\'trackio-logbook:navigate\',target:\'{html.escape(h["target"], quote=True)}\'}}, \'*\')">'
-        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.6 13.4a1 1 0 0 0 1.4 0l3-3a3 3 0 0 0-4.2-4.2l-1.7 1.7a1 1 0 1 0 1.4 1.4l1.7-1.7a1 1 0 1 1 1.4 1.4l-3 3a1 1 0 0 0 0 1.4Zm2.8-2.8a1 1 0 0 0-1.4 0l-3 3a1 1 0 0 0 1.4 1.4l3-3a1 1 0 0 0 0-1.4Zm-2.2 4.2-1.7 1.7a1 1 0 1 1-1.4-1.4l1.7-1.7a1 1 0 1 0-1.4-1.4l-1.7 1.7a3 3 0 1 0 4.2 4.2l1.7-1.7a1 1 0 1 0-1.4-1.4Z"/></svg>'
-        '</button>'
-        for h in hotspots
-    )
     output = Path(args.out)
-    output.write_text(
-        "<!doctype html><html><head><meta charset=\"utf-8\"><style>"
-        "body{margin:0;background:#fff}.trackio-poster{position:relative;line-height:0}"
-        ".trackio-poster img{display:block;width:100%;height:auto}"
-        ".trackio-poster-hotspot{position:absolute;transform:translateX(-100%);width:clamp(22px,2.4vw,38px);aspect-ratio:1;display:grid;place-items:center;border:0;border-radius:999px;background:rgba(255,255,255,.82);box-shadow:0 1px 3px rgba(15,23,42,.14);color:#0f766e;cursor:pointer;opacity:.68}"
-        ".trackio-poster-hotspot svg{width:58%;height:58%;fill:currentColor}"
-        ".trackio-poster-hotspot:hover,.trackio-poster-hotspot:focus-visible{background:#fff;box-shadow:0 0 0 3px rgba(13,148,136,.28),0 2px 6px rgba(15,23,42,.2);opacity:1;outline:none}"
-        "</style></head><body><div class=\"trackio-poster\">"
-        f"<img src=\"data:image/png;base64,{image}\" alt=\"Interactive reproduction poster\">{buttons}"
-        "</div></body></html>",
-        encoding="utf-8",
-    )
+    output.write_text(_render_embed(image, hotspots), encoding="utf-8")
     print(f"[logbook_embed] wrote {output} with {len(hotspots)} hotspot(s)")
     return 0
 
