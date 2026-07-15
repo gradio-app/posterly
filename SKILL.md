@@ -1,15 +1,4 @@
----
-name: posterly
-description: "Build a self-contained reproduction poster for a Trackio logbook, with optional hotspots that navigate to the relevant logbook pages."
-allowed-tools: Bash(*), Read, Write, Edit, Grep, Glob, WebFetch, WebSearch
----
-
-> **This fork runs fully headless — no user interaction.** Every design choice is
-> inferred from the source material using the defaults in Step 0.1; there is no
-> AskUserQuestion round. It is built to run end-to-end and produce a finished
-> poster with zero prompts.
-
-# posterly — Trackio Logbook Poster Workflow
+---# posterly — Trackio Logbook Poster Workflow
 
 A Trackio reproduction poster starts as **one HTML file** styled for an exact
 print canvas and rendered via Playwright + Chromium. It is then wrapped as
@@ -67,14 +56,12 @@ python -c "from playwright.sync_api import sync_playwright" \
 python -m playwright install chromium
 ```
 
-### Step 0.1 — Non-interactive defaults (run without asking)
+### Step 0: Defaults
 
-**Run end-to-end with no questions.** Infer the design from the source paper and
-the Trackio logbook using these defaults:
+Infer the design from the source paper and the Trackio logbook using these defaults:
 
 - **Canvas:** narrower landscape by default — **48×36in** for `landscape_hero`,
-  60×36in for `landscape_4col`. Skip the venue web-lookup (Step 0) unless a venue
-  is explicitly named — and never imply a venue the work wasn't published at.
+  60×36in for `landscape_4col`. 
 - **Framing:** use faithful-reproduction framing: the paper's claim versus what
   the logged runs *actually* showed. Never dress results up to match the paper.
 - **Layout:** pick by content, don't ask. One dominant figure ⇒ `landscape_hero`;
@@ -83,36 +70,7 @@ the Trackio logbook using these defaults:
 - **Palette:** *derive* a topic/brand accent via **§Palette derivation** (e.g. a
   field- or logo-driven hue); fall back to the neutral template palette only as a
   last resort — do not ask "what colors?".
-- **QR:** auto-target the paper / arXiv / repo link if one appears in the source;
-  omit it otherwise. Generate offline.
 - **Text density / block count:** normal / normal.
-
-Record the inferred choices in your build notes (same as Step 0.5 answers) so a
-later edit doesn't revert them.
-
-### Step 0 — Pull the venue's official poster guidelines
-
-Conference specs change year-to-year and vary wildly between venues:
-
-- ICML often goes 60×36 in landscape; **ICLR has been 24×36 in portrait** in recent years; **NeurIPS** historically allowed multiple sizes; **CVPR** has used A0 portrait. Don't assume.
-- Font minimums (≥24pt body for some venues), bleed margins, allowed orientations, on-poster logos, anonymity rules, QR-code policies — all vary.
-
-Procedure:
-1. `WebSearch` for `"<venue> <year> poster instructions"` or `"<venue> <year> poster size"`.
-2. `WebFetch` the venue's official page; extract **dimensions, orientation, font-size floor, logo policy, anonymity rules, file-format requirement, template link if any**.
-3. If paywalled or down, check OpenReview's call-for-papers, else fall back to the default 60×36in canvas.
-4. Record the extracted spec (dimensions, orientation, font floor) in your build notes **BEFORE** drafting — a wrong canvas size invalidates every alignment decision downstream.
-
-### Step 0.5 — Design choices (decide from the source, no questions)
-
-Decide each of these yourself from the source material — never ask. The Step 0.1
-defaults settle most of it; the notes below are the *meaning* of each choice:
-
-- **Layout**: one dominant figure ⇒ `landscape_hero`; 3–5 balanced cards/column ⇒ `landscape_4col` (default); portrait only if a portrait canvas is named. See `templates/README.md`.
-- **Palette**: derive a poster-specific accent from the material via **§Palette derivation** — a field/topic hue or a provided logo's dominant color. The neutral slate-blue + gold is the *last-resort* fallback, not the default.
-- **Logos**: only if logo files are provided in the source. Inspect each (aspect ratio, transparency, background — Step 2 item 5) and pick a size class + chip per **Gate E**. Never fabricate a logo; cross-check any venue logo policy from Step 0.
-- **QR code**: include one only if the source has a paper / arXiv / repo link; point it there. Generate it **offline** as a local image (`qrencode`); never leave a remote QR-service URL — it hangs `measure`'s networkidle wait and link-rots.
-- **Text density** (default **Normal**): **Light** = fewer words, freed space reassigned to paper-sourced figures — trim secondary prose and merge low-value text cards *only* when the space becomes larger AR-appropriate figures. Never blank columns/cards/gaps; the Step 4/6 gates still apply.
 - **Block count** (default **Normal**): **Fewer** = consolidate related material into fewer, larger cards. Orthogonal to density. Merge and enlarge, never delete substance; don't shrink type to fit; still fill the canvas.
 - **Header composition** (enforced defaults):
   - **No venue/qualifier badge** in the left slot — leave it the empty spacer that ships in the template, so the title stays centered against the right-block (logo/QR). Add a left badge **only** if a venue is actually named.
@@ -184,10 +142,8 @@ Rules that hold regardless of seed source:
 ### Step 1 — Confirm content & figures
 
 Once layout is picked, gather from the source material:
-- **Source paper** path (`paper-overleaf/.../main.tex` ideal). Read the abstract, intro, headline results. Don't draft from memory — pull actual numbers, dataset names, equations.
-- **Figures**: match `images/` filenames to paper figures.
-- **Corresponding-author marker**: infer the corresponding author (gets `✉`) and any starred (`★`) co-authors from the paper.
-- **Items to preserve/exclude**: honour any "do not revert" notes already in the source or build notes.
+- **Source paper** Read the Trackio logbook — pull actual numbers, dataset names, equations.
+- **Figures**: use the Trackio logbook figures wherever possible.
 
 ### Step 1.5 — Content audit (mandatory; external reviewer recommended)
 
@@ -195,67 +151,17 @@ Once layout is picked, gather from the source material:
 
 The draft must be audited for paper-to-poster fidelity. Past sessions caught real bugs ONLY here — paper said "20× fewer" but the table gave 16×, "fewest trajectories" was an overclaim vs the actual baselines, theorem preconditions were silently dropped. Skip this and you will discover errors only when standing next to the printed poster.
 
-**How to run it (in order of preference):**
-
-1. **External LLM reviewer with file access (best).** If you have Codex MCP, GPT-5 with file access, another Claude session, or any reviewer that can `Read` paper source files, use that. Recommended defaults if you have Codex MCP: `model="gpt-5.5"`, `model_reasoning_effort="xhigh"`, `sandbox="danger-full-access"` (read-only audit — the sandbox often fails to start in containers / nested namespaces, and the audit only reads files anyway). Send the evidence pack + reviewer prompt below.
-
-2. **Self-audit (fallback).** Walk every numeric claim on the poster and find its `file:line` in the paper source. Build the claim → evidence table by hand. Slower, easier to miss things, but better than skipping.
-
-**Evidence pack the reviewer needs:**
-1. The current `poster.html` (full)
-2. Paper source path(s) so the reviewer can `Read` the `.tex` and any `results/` CSVs
-3. For every numeric claim, the paper `file:line` where the number originates
-4. For every theorem/claim, the paper statement verbatim with all preconditions
-
-**Reviewer prompt template** (use this verbatim, fill bracketed parts):
-
-```
-Audit the academic-poster draft at [poster.html abs path] against the paper at [main.tex abs path] (and any results in [results dir]). For every number, claim, theorem, dataset name, and method-comparison on the poster, produce a claim → evidence table:
-
-  | claim on poster | paper file:line | paper says (verbatim) | match? |
-
-Mark "match?" as: OK / NUMERIC-MISMATCH / OVERCLAIM / MISSING-PRECONDITION / NOT-IN-PAPER / SCOPE-NARROWED.
-
-Then list every NON-OK row as a problem to fix before printing. Be skeptical — "all <method> methods" claims, "best by Nx" claims, and theorem statements without their epsilon/regularity preconditions are the most common silent errors.
-```
-
-You may proceed to Step 2 **only after every finding is either fixed or explicitly recorded as "user-acknowledged tradeoff"**. Do not silently defer.
 
 ### Step 2 — Image preprocessing (optional but reduces re-renders)
 
 For each paper figure you'll use:
 
-1. **Vector source (EPS / PDF figure)?** Chromium `<img>` renders **neither EPS nor PDF** (converting to PDF does not help — also not embeddable), so a vector figure must be converted first. **SVG** is best — it stays crisp at poster scale. Decide without asking: if a vector converter is installed (`inkscape`, `pdf2svg`, `dvisvgm`), convert to SVG; if you can install one quickly, do so; otherwise rasterize to a high-res PNG. Don't block on it.
    - **SVG** (preferred): e.g. `inkscape fig.eps --export-type=svg`, or `pdf2svg fig.pdf fig.svg`.
    - **High-res PNG** (fallback): rasterize with Ghostscript at ≥ 2× rendered px — `gs -dSAFER -dBATCH -dNOPAUSE -dEPSCrop -r600 -sDEVICE=png16m -o fig.png fig.eps` (PIL works too; it shells out to `gs`: `Image.open('fig.eps').load(scale=5)`).
 
    Never embed the `.eps` / `.pdf` directly — it renders blank, caught only late as `polish`'s FIG/BROKEN after a wasted render.
 2. **Autocrop whitespace** with PIL.ImageChops so the figure fills its card.
 3. **Re-export at ≥ 2× the rendered px** — the print-quality *target* (the `asset` gate's hard floor is a lower **1.5×**, so a 2× source clears it comfortably). A `200u × 120u` figure print-rendered at 96 ppi → ~756 × 454 px. Source PNGs must be ≥ 1500 × 900 to look crisp at print.
-4. **QR codes**: request at ≥ 2× rendered px (e.g., 480×480 if displayed at ~240 px).
-5. **Logos**: inspect each user-provided logo file before placing it, then pick a size class and chip treatment from the two tables in **Gate E — Header logos** below. Use the same `python` that runs the posterly tools; this snippet needs Pillow (`pip install Pillow` if missing):
-
-   ```python
-   from PIL import Image
-   src = Image.open("images/lab-logo.png")
-   w, h = src.size
-   has_alpha = src.mode in ("RGBA", "LA", "PA") or "transparency" in src.info
-   im = src.convert("RGBA")
-   im.thumbnail((512, 512))  # analysis-only downscale
-   tw, th = im.size
-   px = im.load()
-   edge = ([px[x, 0] for x in range(tw)] + [px[x, th - 1] for x in range(tw)]
-           + [px[0, y] for y in range(th)] + [px[tw - 1, y] for y in range(th)])
-   white_edge = sum(a > 240 and min(r, g, b) > 245
-                    for r, g, b, a in edge) / len(edge)
-   lum = sorted(0.2126 * r + 0.7152 * g + 0.0722 * b
-                for r, g, b, a in im.getdata() if a > 32)
-   p10, p90 = (lum[len(lum) // 10], lum[(len(lum) * 9) // 10]) if lum else (0, 0)
-   print(f"AR={w / h:.2f}  alpha={has_alpha}  white_edge={white_edge:.0%}  "
-         f"mark lum p10/p90={p10:.0f}/{p90:.0f}")
-   ```
-
-   Reading the output: `AR` drives the size class (Gate E table 1). `white_edge >= ~70%` on an image **without** alpha means a bare white background (Gate E table 2's "stray white rectangle" case). The mark's luminance **percentiles** — not the mean — say whether the marks are dark (`p90 < ~120`) or light (`p10 > ~200`); a white-filled logo with a thin dark outline fools a mean. An **SVG** logo can't be opened by PIL — parse its `viewBox` for the AR and judge the chip from the rendered header crop in Step 5 instead.
 
 ### Step 3 — Scaffold the poster and logbook embed
 
