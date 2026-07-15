@@ -60,13 +60,23 @@ python -m playwright install chromium
 
 Infer the design from the source paper and the Trackio logbook using these defaults:
 
-- **Canvas:** narrower landscape by default — **48×36in** for `landscape_hero`,
-  60×36in for `landscape_4col`. 
+- **Inventory before canvas:** count the *substantive* visual blocks available:
+  paper/logbook figures, result plots, tables, equations, method diagrams, and
+  evidence-bearing cards. Short prose headings and claim summaries do not count.
+  Generate plots from logged raw data before deciding that a reproduction has no
+  figures. Record this inventory in the build notes.
+- **Canvas:** size from that inventory, never from the template default. Use
+  **48×36in** `landscape_hero` only when a dominant real figure can occupy the
+  hero stage. Use 60×36in `landscape_4col` only when there are enough substantive
+  blocks for 3–5 balanced cards **in each column** (not 3–5 cards total). Sparse
+  reproductions belong on the compact portrait template or a smaller custom
+  canvas; if neither can be filled, make the missing data-backed figures first.
 - **Framing:** use faithful-reproduction framing: the paper's claim versus what
   the logged runs *actually* showed. Never dress results up to match the paper.
 - **Layout:** pick by content, don't ask. One dominant figure ⇒ `landscape_hero`;
-  3–5 balanced cards per column ⇒ `landscape_4col` (the default); portrait only
-  if a portrait canvas is named.
+  3–5 balanced cards per column ⇒ `landscape_4col`; otherwise use compact
+  portrait. There is no landscape default: three short claim cards must never
+  become three full-height landscape columns.
 - **Palette:** *derive* a topic/brand accent via **§Palette derivation** (e.g. a
   field- or logo-driven hue); fall back to the neutral template palette only as a
   last resort — do not ask "what colors?".
@@ -168,20 +178,27 @@ For each paper figure you'll use:
 1. `cp templates/<chosen>.html <work-dir>/poster.html`.
 2. Edit the `:root` design tokens (single block; affects everything).
 3. Replace `<title>`, header (title/subtitle/authors/affiliation), banner (if any), column cards, takeaways strip (if any), footer.
-4. Match the template's `data-measure-role` scheme — DO NOT remove these attributes. The measurement script depends on them.
+4. Match the template's `data-measure-role` scheme — DO NOT remove these
+   attributes. The measurement script depends on them. **Do not hand-roll a
+   replacement grid when a Posterly template is available.** Every visual card
+   and column must retain the corresponding `data-measure-role`; a missing role
+   makes `measure`/`polish` incomplete and is a release blocker, not permission
+   to publish an unchecked poster.
 5. **No logo / QR provided:** keep the venue as its **text** badge — don't fabricate a venue logo. With no affiliation logo, **delete the empty `.logo-slot`** rather than leave a hollow box; the text affiliation line and the corner `.ornament` carry attribution. With no QR, delete `.qr-block`. Never fetch or invent an asset the user didn't give, and never leave a remote QR-service URL in the poster (offline local image only).
 6. **The takeaways strip is optional — judge it deliberately; don't default to keeping it *or* to cutting it.** The landscape scaffolds ship with a bottom takeaways strip, but it earns its place only as a genuine 60-second narrative exit (Idea / Method / Result / Practical). Keep it when it lands a conclusion the final column cards don't already; **delete the whole `.takeaways-strip` block** when those cards already close the argument or it would just restate the body — a redundant strip is worse than none (portrait templates omit it by design). **When the poster is over-full** — content fighting to fit, font sizes creeping toward the venue's floor, cards cramming together — this strip is the *first* block to drop to win the body its room back, and you should reach for that readily: cutting a merely-adequate takeaways row makes a better poster than shrinking everything to keep it. But the call is about *content*, not pressure: don't delete a strip that genuinely closes the poster just because space is tight, and don't keep one that isn't carrying its weight. Same spirit as *"Fill means substance"* below: a block stays only if it does real work.
 7. **The framework banner is optional too — same deliberate judgment, applied to the top.** A poster does not *have* to open with a `FRAMEWORK` / TL;DR strip. Keep the `.framework-banner` only when the paper genuinely compresses to one sentence plus 2–4 headline numbers worth reading from 2 m. If the contribution doesn't reduce to a single line, or the opening is better carried by a hero figure (`landscape_hero`) or by the first column itself, **delete the whole `.framework-banner` block** and let the body grid absorb the height (then rebalance through the Step 4 measure loop). A banner that merely paraphrases the title or pads generic stats is noise at the poster's most valuable position — worse than none. **When content is overflowing, this banner is likewise among the first things to cut** — it holds the most valuable real estate for often the least load-bearing content, so reclaiming it for the body is usually the right trade and you shouldn't hesitate. Still, judge on merit, not pressure alone: a true one-line TL;DR with live headline numbers can be worth keeping even on a tight sheet. **A method figure in the banner usually needs no caption** — the banner's text block beside it already explains the method, so a figcaption just says it twice, and a long one is exactly what stretches the figure slot and strands the image with a dead band beside it (`polish` flags this as `BANNER/IMAGE-SLOT`). Default to a **captionless** `banner-figure` (`<figure class="banner-figure"><img …></figure>` — see COMPONENTS.md), never a hand-rolled `.fb-fig` or a bare `<img class="w-100">`. If a figure genuinely needs panel labels, bake them into the image or keep them to **one short** `<figcaption>` line (the component bounds the caption to the image width); centre a block image with `margin-inline:auto`, not `text-align:center`.
 
 Create `poster_embed.html` for the pinned **Reproduction poster** figure cell
-at the top of the logbook. Mark each meaningful poster section with
+at the top of the logbook only after the Step 4–6 gate loop is green. Mark each
+meaningful poster section with
 `data-logbook-target="<page-slug>"` (and optionally
 `data-logbook-label="…"`), then generate the embed after rendering:
 
 ```bash
 python tools/render_preview.py poster.html --png poster_preview.png
 python tools/render_logbook_embed.py poster.html poster_preview.png \
-  --logbook-manifest .trackio/logbook/logbook.json --out poster_embed.html
+  --logbook-manifest .trackio/logbook/logbook.json \
+  --gate-report GATE_REPORT.json --out poster_embed.html
 ```
 
 The tool derives hotspot geometry from the rendered, annotated elements and
@@ -212,12 +229,23 @@ wrapper with no hotspot buttons. Do not create a separate PNG-only fallback.
 Run the normal Posterly gates on `poster.html`; `poster_embed.html` is the
 logbook wrapper, not the print artifact.
 
+The embed generator rejects a failed or stale gate report, skipped
+`measure`/`polish`, a non-strict polish run, or a preview rendered before the
+latest poster edit. Do not bypass this by copying an older report or constructing
+`poster_embed.html` by hand.
+
 **Content-density rule.** A passing geometry gate is not enough. Do not use
 equal-height cards to stretch short prose across a poster. Every large card
 must earn its area with a real figure, result table, equation, or substantive
 evidence; otherwise merge it with a related card, reduce the card's height, or
 choose a denser template. Treat `CARD/TRAILING` / `CARD/INNER-VOID` warnings as
 release blockers for a logbook poster.
+
+Before rendering, do a coarse occupancy review: if a card's content visibly
+ends in its upper half, or most of a column is empty, stop and repack. The fix is
+a larger useful figure, a data-backed plot/table, merging cards, or shrinking
+the canvas — never stretching the card to the footer. This visual check remains
+mandatory even when geometry passes.
 
 A gallery template is a **scaffold**: it passes `preflight` (structure) as shipped, but with figures commented out and copy as `TODO` stubs it is **expected to fail `measure`/`polish`** (columns only fill the top, so the column-bottom spread and gap-to-footer are far out of band). Those two gates judge a *filled* poster — they go green only after Steps 4–6 below, once you've added real content and balanced the columns. Don't try to "fix" a fresh scaffold to pass `measure`; fill it first.
 

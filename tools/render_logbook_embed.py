@@ -4,7 +4,8 @@
 The source poster marks navigable sections with
 ``data-logbook-target="<page-slug>"``. This tool renders those element bounds
 in print layout, validates every slug against the generated logbook manifest,
-then overlays accessible buttons on the rendered poster PNG.
+requires a fresh, passing strict-polish gate report, then overlays accessible
+buttons on the rendered poster PNG.
 """
 from __future__ import annotations
 
@@ -31,6 +32,50 @@ def _slugs(node: dict) -> set[str]:
     return found
 
 
+def _validate_gate_report(
+    report_path: Path,
+    poster_html: Path,
+    poster_png: Path,
+) -> str | None:
+    """Return an actionable error when the poster is not release-ready."""
+    try:
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return f"cannot read gate report {report_path}: {exc}"
+
+    if report.get("overall") != "PASS":
+        return "gate report overall status is not PASS"
+
+    reported_html = report.get("poster_html")
+    if not reported_html:
+        return "gate report does not identify poster_html"
+    if Path(reported_html).resolve() != poster_html:
+        return "gate report belongs to a different poster HTML"
+
+    gates = {
+        gate.get("name"): gate
+        for gate in report.get("gates", [])
+        if isinstance(gate, dict)
+    }
+    for required in ("measure", "polish"):
+        if gates.get(required, {}).get("status") != "PASS":
+            return f"required {required} gate did not PASS"
+
+    polish_command = [str(arg) for arg in gates["polish"].get("command", [])]
+    if "--strict" not in polish_command:
+        return "polish gate was not run in strict mode"
+
+    try:
+        if report_path.stat().st_mtime < poster_html.stat().st_mtime:
+            return "gate report is older than poster HTML; rerun the gates"
+        if poster_png.stat().st_mtime < poster_html.stat().st_mtime:
+            return "poster PNG is older than poster HTML; rerender the preview"
+    except OSError as exc:
+        return f"cannot compare poster artifact timestamps: {exc}"
+
+    return None
+
+
 def _parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("poster_html", help="Annotated source poster HTML")
@@ -38,6 +83,10 @@ def _parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--logbook-manifest", required=True,
         help="Path to .trackio/logbook/logbook.json for slug validation",
+    )
+    p.add_argument(
+        "--gate-report", required=True,
+        help="Fresh passing GATE_REPORT.json from run_gates.py --strict-polish",
     )
     p.add_argument("--out", default="poster_embed.html", help="Output HTML path")
     return p
@@ -48,8 +97,18 @@ def _main() -> int:
     poster_html = Path(args.poster_html).resolve()
     poster_png = Path(args.poster_png).resolve()
     manifest_path = Path(args.logbook_manifest).resolve()
-    if not poster_html.is_file() or not poster_png.is_file() or not manifest_path.is_file():
-        print("ERROR: poster HTML, poster PNG, and logbook manifest must exist.", file=sys.stderr)
+    report_path = Path(args.gate_report).resolve()
+    required_paths = (poster_html, poster_png, manifest_path, report_path)
+    if not all(path.is_file() for path in required_paths):
+        print(
+            "ERROR: poster HTML, poster PNG, logbook manifest, and gate report "
+            "must exist.",
+            file=sys.stderr,
+        )
+        return 2
+    gate_error = _validate_gate_report(report_path, poster_html, poster_png)
+    if gate_error:
+        print(f"ERROR: poster is not release-ready: {gate_error}.", file=sys.stderr)
         return 2
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     valid_slugs = _slugs(manifest["root"])
