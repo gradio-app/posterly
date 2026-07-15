@@ -25,6 +25,27 @@ from _posterly import canvas as _canvas  # noqa: E402
 from _posterly import render as _render  # noqa: E402
 
 
+_CHAIN_ICON = (
+    '<svg fill="currentColor" viewBox="0 0 32 32" version="1.1" '
+    'xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
+    '<g id="SVGRepo_bgCarrier" stroke-width="0"></g>'
+    '<g id="SVGRepo_tracerCarrier" stroke-linecap="round" '
+    'stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier">'
+    '<title>chain</title><path d="M0 22.944q0 2.464 1.76 4.224l3.072 '
+    '3.104q1.76 1.728 4.224 1.728t4.256-1.728l2.688-2.976q1.376-1.344 '
+    '1.664-3.232t-0.512-3.552l-6.784 6.784q-0.576 0.576-1.408 '
+    '0.576t-1.44-0.576l-2.816-2.816q-0.576-0.608-0.576-1.408t0.576-1.408l6.784-6.816q-1.632-0.8-3.52-0.512t-3.264 '
+    '1.664l-2.944 2.72q-1.76 1.76-1.76 4.224zM9.792 20.256q0 0.832 '
+    '0.576 1.408t1.408 0.576 1.408-0.576l8.48-8.48q0.576-0.576 '
+    '0.576-1.408t-0.576-1.408q-0.608-0.576-1.44-0.576t-1.408 '
+    '0.576l-8.448 8.48q-0.576 0.576-0.576 1.408zM14.336 '
+    '7.968q-0.288 1.888 0.512 3.552l6.816-6.816q0.576-0.576 1.408-0.576t1.408 0.576l2.816 2.848q0.576 0.576 0.576 '
+    '1.408t-0.576 1.408l-6.784 6.784q1.632 0.832 3.52 0.512t3.264-1.664l2.944-2.944q1.76-1.76 1.76-4.224t-1.76-4.256l-2.816-2.816q-1.76-1.76-4.224-1.76t-4.256 '
+    '1.76l-2.944 2.944q-1.344 1.376-1.664 3.264z"></path>'
+    '</g></svg>'
+)
+
+
 def _render_hotspot_button(hotspot: dict) -> str:
     label = html.escape(hotspot["label"], quote=True)
     target = html.escape(hotspot["target"], quote=True)
@@ -35,7 +56,7 @@ def _render_hotspot_button(hotspot: dict) -> str:
         f'aria-label="Open details for {label}" '
         "onclick=\"parent.postMessage({type:'trackio-logbook:navigate',"
         f"target:'{target}'}}, '*')\">"
-        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.6 13.4a1 1 0 0 0 1.4 0l3-3a3 3 0 0 0-4.2-4.2l-1.7 1.7a1 1 0 1 0 1.4 1.4l1.7-1.7a1 1 0 1 1 1.4 1.4l-3 3a1 1 0 0 0 0 1.4Zm2.8-2.8a1 1 0 0 0-1.4 0l-3 3a1 1 0 0 0 1.4 1.4l3-3a1 1 0 0 0 0-1.4Zm-2.2 4.2-1.7 1.7a1 1 0 1 1-1.4-1.4l1.7-1.7a1 1 0 1 0-1.4-1.4l-1.7 1.7a3 3 0 1 0 4.2 4.2l1.7-1.7a1 1 0 1 0-1.4-1.4Z"/></svg>'
+        f"{_CHAIN_ICON}"
         "</button>"
     )
 
@@ -46,9 +67,10 @@ def _render_embed(image: str, hotspots: list[dict]) -> str:
         '<!doctype html><html><head><meta charset="utf-8"><style>'
         "body{margin:0;background:#fff}.trackio-poster{position:relative;line-height:0}"
         ".trackio-poster img{display:block;width:100%;height:auto}"
-        ".trackio-poster-hotspot{position:absolute;transform:translate(calc(-100% - 8px),8px);width:clamp(44px,5vw,60px);aspect-ratio:1;padding:0;display:grid;place-items:center;border:1px solid rgba(15,118,110,.3);border-radius:999px;background:rgba(255,255,255,.94);box-shadow:0 2px 6px rgba(15,23,42,.22);color:#0f766e;cursor:pointer;opacity:1}"
-        ".trackio-poster-hotspot svg{width:62%;height:62%;fill:currentColor}"
-        ".trackio-poster-hotspot:hover,.trackio-poster-hotspot:focus-visible{background:#fff;box-shadow:0 0 0 3px rgba(13,148,136,.32),0 3px 8px rgba(15,23,42,.24);outline:none}"
+        ".trackio-poster-hotspot{position:absolute;transform:translateX(-100%);width:clamp(22px,2.4vw,38px);aspect-ratio:1;padding:0;display:grid;place-items:center;border:0;border-radius:999px;background:rgba(255,255,255,.82);box-shadow:0 1px 3px rgba(15,23,42,.14);color:#6faaa4;cursor:pointer;opacity:.68}"
+        ".trackio-poster-hotspot::before{content:'';position:absolute;left:50%;top:50%;width:clamp(44px,5vw,60px);aspect-ratio:1;transform:translate(-50%,-50%)}"
+        ".trackio-poster-hotspot svg{width:58%;height:58%;fill:currentColor}"
+        ".trackio-poster-hotspot:hover,.trackio-poster-hotspot:focus-visible{background:#fff;box-shadow:0 0 0 3px rgba(13,148,136,.28),0 2px 6px rgba(15,23,42,.2);opacity:1;outline:none}"
         "</style></head><body><div class=\"trackio-poster\">"
         f'<img src="data:image/png;base64,{image}" alt="Interactive reproduction poster">{buttons}'
         "</div></body></html>"
