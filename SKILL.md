@@ -280,15 +280,19 @@ python tools/render_logbook_embed.py poster.html poster_preview.png \
 
 The tool derives hotspot geometry from the rendered, annotated elements and
 rejects targets absent from the logbook manifest. Do not hand-measure or
-hard-code hotspot rectangles. It emits a persistent `Open details ↗` pill in
-the upper-right of every interactive region; the pill remains visible before
-hover, while hover/focus adds the full-region highlight. Do not hide, replace,
-or manually position this affordance. Each annotated section must:
+hard-code hotspot rectangles. It emits a compact chain-link icon beside each
+annotated section title; the icon subtly highlights on hover or focus. Do not
+hide, replace, or manually position this affordance. Each annotated section must:
 
 - map to a real logbook **page slug** (for example `claim-2-horizontal-scaling`),
   not an invented URL or a cell id;
 - use a descriptive `aria-label` and visible hover/focus outline; and
 - send the parent logbook a navigation message on click or keyboard activation:
+
+  `parent.postMessage({type: 'trackio-logbook:navigate', target: '<page-slug>'}, '*')`.
+  Trackio's logbook viewer validates that the message originates from one of
+  its figure iframes and that the target is a real manifest slug before updating
+  `#/&lt;page-slug&gt;`. Do not replace this protocol with a direct iframe URL.
 
 Do not make mere hover navigate: it is too easy to trigger while reading a
 dense poster. The generated embed uses click/keyboard navigation and hover only
