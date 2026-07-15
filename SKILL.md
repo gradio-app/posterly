@@ -290,6 +290,11 @@ or manually position this affordance. Each annotated section must:
 - use a descriptive `aria-label` and visible hover/focus outline; and
 - send the parent logbook a navigation message on click or keyboard activation:
 
+  `parent.postMessage({type: 'trackio-logbook:navigate', target: '<page-slug>'}, '*')`.
+  Trackio's logbook viewer validates that the message originates from one of
+  its figure iframes and that the target is a real manifest slug before updating
+  `#/&lt;page-slug&gt;`. Do not replace this protocol with a direct iframe URL.
+
 Do not make mere hover navigate: it is too easy to trigger while reading a
 dense poster. The generated embed uses click/keyboard navigation and hover only
 as an affordance.
