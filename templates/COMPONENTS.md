@@ -441,6 +441,11 @@ every former inline use.
 | `.mt-1 … .mt-6` | `margin-top: calc(N * var(--u))` | `style="margin-top: …"` |
 | `.mb-1 … .mb-4` | `margin-bottom: calc(N * var(--u))` | `style="margin-bottom: …"` |
 | `.w-45 … .w-100` (5% steps) | figure `<img>` width | `style="width: NN%"` |
+<!-- The width scale is EXACTLY the 5% steps w-45, w-50, …, w-100. A class off
+     that set (e.g. w-40, w-33, w-47) matches no rule and silently no-ops — the
+     element keeps its default width with no error. `poster_check.py preflight`
+     now WARNs on any used-but-undefined `w-NN`. Snap to the nearest 5% step. -->
+
 | `.text-secondary` `.text-muted` | secondary/muted text color tokens | `style="color:#888"` |
 | `.nowrap` | `white-space: nowrap` | orphan-glyph guard (polish Gate B) |
 | `.text-center` | `text-align: center` | `style="text-align:center"` |

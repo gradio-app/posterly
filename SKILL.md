@@ -314,7 +314,7 @@ Run preflight in parallel:
 python <skill>/tools/poster_check.py preflight poster.html
 ```
 
-Catches: LaTeX residue (`\ref{`, `\cite{`, `\textbf{`, lone `\ `), bare `<` inside `$…$` math (MathJax mis-parses as HTML tag), missing local images, missing `data-measure-role="poster"`, unknown role values.
+Catches: LaTeX residue (`\ref{`, `\cite{`, `\textbf{`, lone `\ `), bare `<` inside `$…$` math (MathJax mis-parses as HTML tag), missing local images, missing `data-measure-role="poster"`, unknown role values, and undefined `w-NN` width-utility classes (WARN — the width scale is exactly the 5% steps `w-45`…`w-100`; an off-scale `w-40`/`w-33` matches no rule and silently no-ops, leaving the element at its default width).
 
 ### Step 5 — Render + visual inspection
 
