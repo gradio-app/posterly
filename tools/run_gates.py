@@ -383,6 +383,17 @@ def run_gate(
 ) -> dict[str, Any]:
     """Run one gate and return its report entry (DESIGN_FINAL §7 shape)."""
     severity = GATE_SEVERITY[gate]
+    # ``--strict-polish`` promotes the normally-soft polish gate to a HARD,
+    # blocking gate. The documented contract (SKILL.md) is that "a visible
+    # polish warning means the poster is not ready to pin", so a polish
+    # advisory under strict must flip ``overall`` to FAIL. Without this the
+    # child (``poster_check.py polish --strict``) exits 1, but
+    # ``_status_from_returncode(1, "soft")`` mapped it to WARN and left
+    # ``overall`` PASS -- the exact bug the ICML-2026 reproductions hit.
+    # Recording it as HARD here is also self-documenting: the report shows
+    # ``polish [hard] -> FAIL`` under strict.
+    if gate == "polish" and getattr(opts, "strict_polish", False):
+        severity = "hard"
     argv = _build_argv(gate, scripts_dir, html_path, opts, report_json_dir)
     returncode, stdout, stderr = _run_child(argv, cwd=html_path.parent)
     status = _status_from_returncode(returncode, severity)
@@ -454,13 +465,11 @@ def run_all(html_path: Path, opts: argparse.Namespace) -> dict[str, Any]:
             if opts.fail_fast:
                 gates.extend(_skipped_remainder(gate))
                 break
-        # A soft polish FAIL only happens under --strict-polish, where it
-        # counts as a hard failure for `overall`.
-        if entry["status"] == "FAIL" and not is_hard:
-            hard_failures += 1
-            if opts.fail_fast:
-                gates.extend(_skipped_remainder(gate))
-                break
+        # NOTE: under ``--strict-polish`` the polish gate's severity is
+        # promoted to "hard" (see run_gate), so a polish advisory is a FAIL
+        # handled by the first branch above -- it counts toward hard_failures
+        # and flips ``overall`` to FAIL. Without strict, polish exits 0 even
+        # with advisories, so it never reaches WARN/FAIL here.
 
     overall = "PASS" if hard_failures == 0 else "FAIL"
 
