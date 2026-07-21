@@ -555,7 +555,10 @@
     font-size: var(--fs-4);
     margin: calc(4 * var(--u)) 0;
   }
-  .callout strong { color: var(--gold); }
+  /* Emphasis on the solid-accent (blue) callout must be a LIGHT token:
+     --gold on --accent is only ~2.8:1 (below the 3:1 AA large-text floor),
+     and --accent-deep would be worse (~1.5:1). --gold-soft clears ~6.3:1. */
+  .callout strong { color: var(--gold-soft); }
   /* Flat solid gold (de-gradient). */
   .callout.gold {
     background: var(--gold);

@@ -310,6 +310,32 @@ def check_role_nesting(html: str
     return parser.roles, parser.stray_close_lines
 
 
+def undefined_width_classes(raw_html: str) -> list[str]:
+    """Return the sorted ``w-NN`` width-utility classes USED in the markup
+    that have no matching ``.w-NN`` rule in the stylesheet.
+
+    The templates ship a fixed 5%-step width scale (``.w-45`` … ``.w-100``).
+    A ``class="w-40"`` / ``class="w-33"`` outside that set matches no rule, so
+    the browser silently drops it and the element keeps its default width --
+    a figure that looks mis-sized with no error anywhere. This surfaces the
+    silent no-op as a WARN (the same spirit as style_check rule 13 for
+    dangling ``block--modifier`` classes, but for the ``w-`` utility scale).
+
+    Definitions are detected by the leading dot (``.w-45``); usages by bare
+    tokens inside a ``class="…"`` attribute (``w-45``), so the two never
+    collide. Pure function so the rule is unit-testable without a browser.
+    """
+    defined = set(re.findall(r"\.w-(\d{1,3})\b", raw_html))
+    used: set[str] = set()
+    for m in re.finditer(r'class\s*=\s*["\']([^"\']*)["\']', raw_html,
+                         re.IGNORECASE):
+        for tok in m.group(1).split():
+            mm = re.fullmatch(r"w-(\d{1,3})", tok)
+            if mm:
+                used.add(mm.group(1))
+    return sorted(used - defined, key=int)
+
+
 def cmd_preflight(args: argparse.Namespace) -> int:
     html_path = Path(args.html).resolve()
     if not html_path.exists():
@@ -450,6 +476,24 @@ def cmd_preflight(args: argparse.Namespace) -> int:
                 "cause -- it closes a grid container early so the role "
                 "ends up outside its layout slot."
             )
+
+    # 6.5) Unknown width-utility classes (`w-NN` outside the defined scale).
+    #      These silently no-op in the browser -- the element keeps its
+    #      default width with no error -- so surface them as a WARN.
+    undef_w = undefined_width_classes(raw)
+    if undef_w:
+        defined_w = sorted(
+            (int(n) for n in set(re.findall(r"\.w-(\d{1,3})\b", raw))),
+        )
+        warnings.append(
+            "undefined width utility class(es) "
+            + ", ".join(f"w-{n}" for n in undef_w)
+            + " -- these match no `.w-NN` rule and silently no-op (the "
+            "element keeps its default width). Valid widths: "
+            + (", ".join(f"w-{n}" for n in defined_w) if defined_w
+               else "(none defined)")
+            + "."
+        )
 
     # 7) Soft sanity: no <title> / no <h1>. Warns, doesn't fail.
     if not re.search(r"<title[^>]*>.+?</title>", raw, re.DOTALL):
