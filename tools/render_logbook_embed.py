@@ -198,8 +198,20 @@ def _main() -> int:
         browser.close()
 
     if not hotspots:
-        print("ERROR: no [data-logbook-target] sections found.", file=sys.stderr)
-        return 2
+        # No annotated sections apply -> emit the SAME self-contained
+        # poster_embed.html wrapper, just without hotspot buttons (SKILL.md:
+        # "poster_embed.html is still the fallback ... with no hotspot
+        # buttons. Do not create a separate PNG-only fallback."). The gate
+        # report was still validated above, so this fallback is only produced
+        # for a release-ready poster.
+        image = base64.b64encode(poster_png.read_bytes()).decode("ascii")
+        output = Path(args.out)
+        output.write_text(_render_embed(image, []), encoding="utf-8")
+        print(
+            f"[logbook_embed] wrote {output} with 0 hotspot(s) "
+            "(no [data-logbook-target] sections; self-contained fallback)"
+        )
+        return 0
     for hotspot in hotspots:
         if hotspot["target"] not in valid_slugs:
             print(f"ERROR: unknown logbook page slug: {hotspot['target']}", file=sys.stderr)
