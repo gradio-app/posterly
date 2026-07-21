@@ -431,8 +431,10 @@
     flex-shrink: 0;
   }
   /* Inline "★ key/headline" tag inside a section title (replaces inline styles). */
+  /* --gold on a white/light card is only ~2.4:1 (fails AA); the star-tag is
+     small text, so use --accent-deep (~10:1 on white, ~8.7:1 on accent-light). */
   .section-title .tag-key {
-    color: var(--gold);
+    color: var(--accent-deep);
     font-size: var(--fs-4);
   }
 
@@ -489,7 +491,10 @@
     font-size: var(--fs-5);
     margin: calc(4 * var(--u)) 0;
   }
-  .callout strong { color: var(--gold); }
+  /* Emphasis on the solid-accent (blue) callout must be a LIGHT token:
+     --gold on --accent is only ~2.8:1 (below the 3:1 AA large-text floor),
+     and --accent-deep would be worse (~1.5:1). --gold-soft clears ~6.3:1. */
+  .callout strong { color: var(--gold-soft); }
   .callout.gold {
     background: var(--gold);
     color: var(--accent-deep);
